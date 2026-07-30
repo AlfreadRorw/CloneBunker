@@ -1,4 +1,3 @@
--- All Icons untuk Phone ID Viewer
 return {
     Players = {
         Color = Color3.fromRGB(0, 122, 255),

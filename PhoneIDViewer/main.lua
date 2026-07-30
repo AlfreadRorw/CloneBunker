@@ -1,7 +1,6 @@
 --[[
-    PHONE ID VIEWER v5.0 - MODULAR (MIRIP VANZYXXX)
-    Main.lua - UI Library + Feature Loader
-    Semua fitur di-download dari GitHub
+    PHONE ID VIEWER v5.0 - MODULAR (VANZYXXX STYLE)
+    Main.lua - UI iPhone + Feature Loader dari GitHub
     Repo: github.com/AlfreadRorw/CloneBunker
 ]]
 
@@ -26,12 +25,8 @@ local HttpService = Services.HttpService
 -- ===================== CONFIG =====================
 local Config = {
     CustomColor = Color3.fromRGB(255, 255, 255),
-    ToggleIcon = "rbxassetid://74184409085966",
-    GlowEffects = true,
-    WallpaperURL = "",
-    WidgetURL = "",
     ThemeIndex = 1,
-    OnReset = Instance.new("BindableEvent"),
+    GlowEnabled = true,
 }
 
 -- ===================== THEME =====================
@@ -58,7 +53,7 @@ local THEME_PRESETS = {
     {Name="Hijau", Accent=Color3.fromRGB(120,230,150), OnAccent=Color3.fromRGB(8,15,10)},
 }
 
--- ===================== GITHUB URL =====================
+-- ===================== GITHUB BASE URL =====================
 local GITHUB_BASE = "https://raw.githubusercontent.com/AlfreadRorw/CloneBunker/main/PhoneIDViewer"
 
 -- ===================== UTILITY =====================
@@ -109,7 +104,7 @@ local function persistFav() saveJSON(FAV_FILE, favPlayerIds) end
 
 local appSettings = loadJSON(SETTINGS_FILE)
 if not appSettings.themeIndex then
-    appSettings = { wallpaperUrl = "", widgetUrl = "", themeIndex = 1, glowEnabled = true }
+    appSettings = { themeIndex = 1, glowEnabled = true }
 end
 local function persistSettings() saveJSON(SETTINGS_FILE, appSettings) end
 
@@ -166,16 +161,16 @@ local FeatureLoader = {
     FeatureErrors = {},
 }
 
-local FeatureList = {
-    {name = "Players", url = GITHUB_BASE .. "/Applications/Players.lua"},
-    {name = "Clone", url = GITHUB_BASE .. "/Applications/Clone.lua"},
-    {name = "Body", url = GITHUB_BASE .. "/Applications/Body.lua"},
-    {name = "Accessories", url = GITHUB_BASE .. "/Applications/Accessories.lua"},
-    {name = "Preset", url = GITHUB_BASE .. "/Applications/Preset.lua"},
-    {name = "Favorite", url = GITHUB_BASE .. "/Applications/Favorite.lua"},
-    {name = "Setting", url = GITHUB_BASE .. "/Applications/Setting.lua"},
-    {name = "Icons", url = GITHUB_BASE .. "/Icons/AllIcons.lua"},
-}
+local appOrder = {"Players", "Clone", "Body", "Accessories", "Preset", "Favorite", "Setting"}
+local FeatureList = {}
+
+-- Tambahkan Icons (satu file gabungan)
+table.insert(FeatureList, {name = "Icons", url = GITHUB_BASE .. "/Icons/AllIcons.lua"})
+
+-- Tambahkan Aplikasi
+for _, name in ipairs(appOrder) do
+    table.insert(FeatureList, {name = name, url = GITHUB_BASE .. "/Applications/" .. name .. ".lua"})
+end
 
 function FeatureLoader:LoadFeature(featureInfo)
     local success, result = pcall(function()
@@ -196,7 +191,7 @@ function FeatureLoader:LoadFeature(featureInfo)
         return true
     else
         FeatureLoader.FeatureErrors[featureInfo.name] = tostring(result)
-        warn("[PhoneIDViewer] Failed: " .. featureInfo.name)
+        warn("[PhoneIDViewer] Failed: " .. featureInfo.name .. " - " .. tostring(result))
         return false
     end
 end
@@ -225,7 +220,7 @@ phone.Size = UDim2.new(0,0,0,0); phone.Position = UDim2.new(0.5,0,0.52,0)
 phone.AnchorPoint = Vector2.new(0.5,0.5); phone.BackgroundColor3 = T.BG
 phone.BorderSizePixel = 0; phone.Visible = false; phone.ClipsDescendants = true
 corner(phone, 38)
-local phoneStroke = stroke(phone, T.Accent, 2, 0.5)
+local phoneStroke = stroke(phone, T.Accent, 2, appSettings.glowEnabled and 0.5 or 0.15)
 gradient(phone, ColorSequence.new{
     ColorSequenceKeypoint.new(0, Color3.fromRGB(16,16,16)),
     ColorSequenceKeypoint.new(1, Color3.fromRGB(4,4,4)),
@@ -233,10 +228,12 @@ gradient(phone, ColorSequence.new{
 
 local PHONE_SIZE = UDim2.new(0,320,0,560)
 
+-- Orientasi
 local function updatePhoneLayout()
     local cam = Services.Workspace.CurrentCamera; if not cam then return end
     local vp = cam.ViewportSize; if vp.X<=0 then return end
-    if vp.X > vp.Y then
+    local land = vp.X > vp.Y
+    if land then
         phone.AnchorPoint = Vector2.new(1,1); phone.Position = UDim2.new(1,-14,1,-14)
         PHONE_SIZE = UDim2.new(0,190,0,330)
     else
@@ -308,7 +305,7 @@ end
 
 shared.pulseIsland = pulseIsland
 
--- Widget (Jam + Tanggal)
+-- Widget
 local widget = Instance.new("Frame", screen)
 widget.Size = UDim2.new(1,-32,0,56); widget.Position = UDim2.new(0,16,0,40)
 widget.BackgroundColor3 = Color3.fromRGB(0,0,0); widget.BackgroundTransparency = 0.35
@@ -402,7 +399,7 @@ shared.refreshCurrentApp = function()
     if currentAppFunc then clearApp(); currentAppFunc(appContent, shared) end
 end
 
--- Home Screen Grid (dibangun setelah semua modul load)
+-- Home Screen Grid
 local appGrid = Instance.new("Frame", homeScreen)
 appGrid.Size = UDim2.new(1,-16,1,-20); appGrid.Position = UDim2.new(0,8,0,8); appGrid.BackgroundTransparency = 1
 local appGridLayout = Instance.new("UIGridLayout", appGrid)
@@ -428,7 +425,7 @@ do
     end)
 end
 
--- Open / Close
+-- Open/Close
 local function openPhone()
     phone.Visible = true; phone.Size = UDim2.new(0,0,0,0)
     tween(phone, {Size=PHONE_SIZE}, 0.32, Enum.EasingStyle.Back); goHome()
@@ -439,36 +436,37 @@ end
 
 local phoneTool = ensureTool()
 if phoneTool then phoneTool.Equipped:Connect(openPhone); phoneTool.Unequipped:Connect(closePhone) end
-Services.Players.LocalPlayer.CharacterAdded:Connect(function() task.wait(1); ensureTool() end)
+LocalPlayer.CharacterAdded:Connect(function() task.wait(1); ensureTool() end)
 
--- ===================== LOAD ALL FEATURES =====================
-local appOrder = {"Players", "Clone", "Body", "Accessories", "Preset", "Favorite", "Setting"}
-
+-- ===================== LOAD ALL FEATURES & BUILD HOME =====================
 spawn(function()
-    -- Load Icons dulu
-    FeatureLoader:LoadFeature({name = "Icons", url = GITHUB_BASE .. "/Icons/AllIcons.lua"})
-    
-    -- Load aplikasi
-    for _, name in ipairs(appOrder) do
-        FeatureLoader:LoadFeature({name = name, url = GITHUB_BASE .. "/Applications/" .. name .. ".lua"})
+    -- Load semua modul
+    for _, feature in ipairs(FeatureList) do
+        FeatureLoader:LoadFeature(feature)
         task.wait(0.2)
     end
-    
-    -- Bangun home screen setelah semua modul siap
-    local iconData = FeatureLoader.LoadedFeatures["Icons"] or {}
+
+    -- Ambil data ikon
+    local iconData = FeatureLoader.LoadedFeatures["Icons"]
+    if not iconData then
+        warn("[PhoneIDViewer] Icons gagal dimuat, fallback ke teks.")
+        iconData = {}
+    end
+
+    -- Bangun grid aplikasi
     for i, name in ipairs(appOrder) do
-        local icon = iconData[name] or {Color = Color3.fromRGB(255,255,255)}
+        local icon = iconData[name] or {}
         local builder = icon.Builder or icon
-        
+        local color = icon.Color or Color3.fromRGB(255,255,255)
+
         local holder = Instance.new("Frame", appGrid)
         holder.Size = UDim2.new(0,82,0,96); holder.BackgroundTransparency = 1; holder.LayoutOrder = i
-        
+
         local iconBtn = Instance.new("TextButton", holder)
         iconBtn.Size = UDim2.new(0,66,0,66); iconBtn.Position = UDim2.new(0.5,-33,0,0)
-        iconBtn.BackgroundColor3 = icon.Color or Color3.fromRGB(255,255,255); iconBtn.Text = ""
-        iconBtn.AutoButtonColor = false
+        iconBtn.BackgroundColor3 = color; iconBtn.Text = ""; iconBtn.AutoButtonColor = false
         corner(iconBtn, 18); stroke(iconBtn, T.Border, 1, 0.4); pressFX(iconBtn)
-        
+
         if builder then
             pcall(function() builder(iconBtn, Color3.new(1,1,1)) end)
         else
@@ -477,14 +475,14 @@ spawn(function()
             lbl.Text = name:sub(1,1); lbl.TextColor3 = Color3.new(1,1,1)
             lbl.Font = Enum.Font.GothamBlack; lbl.TextSize = 28
         end
-        
+
         local label = Instance.new("TextLabel", holder)
         label.Size = UDim2.new(1,0,0,22); label.Position = UDim2.new(0,0,0,70); label.BackgroundTransparency = 1
         label.Text = name; label.TextColor3 = T.Text; label.Font = Enum.Font.Gotham; label.TextSize = 11; label.TextWrapped = true
-        
+
         iconBtn.MouseButton1Click:Connect(function() openApp(name) end)
     end
-    
+
     pulseIsland("Phone ID Viewer Siap!")
     Services.StarterGui:SetCore("SendNotification", {
         Title = "Phone ID Viewer",
