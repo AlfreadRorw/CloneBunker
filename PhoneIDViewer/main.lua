@@ -2,6 +2,7 @@
     PHONE ID VIEWER v5.0 - MODULAR (VANZYXXX STYLE)
     Main.lua - UI iPhone + Feature Loader dari GitHub
     Repo: github.com/AlfreadRorw/CloneBunker
+    FIXED: Grid lebih kecil, Setting bisa dibuka, Wallpaper & Widget berfungsi
 ]]
 
 -- ===================== SERVICES =====================
@@ -104,7 +105,12 @@ local function persistFav() saveJSON(FAV_FILE, favPlayerIds) end
 
 local appSettings = loadJSON(SETTINGS_FILE)
 if not appSettings.themeIndex then
-    appSettings = { themeIndex = 1, glowEnabled = true }
+    appSettings = { 
+        themeIndex = 1, 
+        glowEnabled = true, 
+        wallpaperUrl = "", 
+        widgetUrl = "" 
+    }
 end
 local function persistSettings() saveJSON(SETTINGS_FILE, appSettings) end
 
@@ -112,6 +118,24 @@ if appSettings.themeIndex and THEME_PRESETS[appSettings.themeIndex] then
     Config.CustomColor = THEME_PRESETS[appSettings.themeIndex].Accent
     T.Accent = Config.CustomColor
     T.OnAccent = THEME_PRESETS[appSettings.themeIndex].OnAccent
+end
+
+-- ===================== CUSTOM ASSET =====================
+local function getCustomAsset(path)
+    local ok, result = pcall(function() return getcustomasset(path) end)
+    if ok and result then return result end
+    return nil
+end
+
+local function downloadAndCache(url, localPath)
+    if isfile and isfile(localPath) then
+        local cached = getCustomAsset(localPath)
+        if cached then return cached end
+    end
+    local ok, data = pcall(function() return game:HttpGet(url) end)
+    if not ok or not data then return nil end
+    pcall(function() if writefile then writefile(localPath, data) end end)
+    return getCustomAsset(localPath)
 end
 
 -- ===================== ITEM READER =====================
@@ -153,6 +177,7 @@ local shared = {
     getItems = getItems, copyToClipboard = copyToClipboard,
     saveJSON = saveJSON, loadJSON = loadJSON, persistFav = persistFav, persistSettings = persistSettings,
     corner = corner, stroke = stroke, tween = tween, pressFX = pressFX, gradient = gradient,
+    downloadAndCache = downloadAndCache,
 }
 
 -- ===================== FEATURE LOADER =====================
@@ -164,10 +189,10 @@ local FeatureLoader = {
 local appOrder = {"Players", "Clone", "Body", "Accessories", "Preset", "Favorite", "Setting"}
 local FeatureList = {}
 
--- Tambahkan Icons (satu file gabungan)
+-- Icons
 table.insert(FeatureList, {name = "Icons", url = GITHUB_BASE .. "/Icons/AllIcons.lua"})
 
--- Tambahkan Aplikasi
+-- Aplikasi
 for _, name in ipairs(appOrder) do
     table.insert(FeatureList, {name = name, url = GITHUB_BASE .. "/Applications/" .. name .. ".lua"})
 end
@@ -183,15 +208,10 @@ function FeatureLoader:LoadFeature(featureInfo)
 
     if success and result then
         FeatureLoader.LoadedFeatures[featureInfo.name] = result
-        Services.StarterGui:SetCore("SendNotification", {
-            Title = "Phone ID Viewer",
-            Text = "Loaded: " .. featureInfo.name,
-            Duration = 1
-        })
         return true
     else
         FeatureLoader.FeatureErrors[featureInfo.name] = tostring(result)
-        warn("[PhoneIDViewer] Failed: " .. featureInfo.name .. " - " .. tostring(result))
+        warn("[PhoneIDViewer] Failed: " .. featureInfo.name)
         return false
     end
 end
@@ -305,21 +325,64 @@ end
 
 shared.pulseIsland = pulseIsland
 
+-- Wallpaper
+local wallpaperImg = Instance.new("ImageLabel", screen)
+wallpaperImg.Size = UDim2.new(1,0,1,0); wallpaperImg.BackgroundColor3 = T.BG
+wallpaperImg.Image = ""; wallpaperImg.ScaleType = Enum.ScaleType.Crop; wallpaperImg.ZIndex = 0
+
+local function applyWallpaper()
+    if appSettings.wallpaperUrl and appSettings.wallpaperUrl ~= "" then
+        local asset = downloadAndCache(appSettings.wallpaperUrl, "PhoneIDViewer/wallpaper.png")
+        if asset then
+            wallpaperImg.Image = asset
+            wallpaperImg.BackgroundTransparency = 0
+        else
+            wallpaperImg.Image = ""
+        end
+    else
+        wallpaperImg.Image = ""
+    end
+end
+applyWallpaper()
+
 -- Widget
 local widget = Instance.new("Frame", screen)
 widget.Size = UDim2.new(1,-32,0,56); widget.Position = UDim2.new(0,16,0,40)
 widget.BackgroundColor3 = Color3.fromRGB(0,0,0); widget.BackgroundTransparency = 0.35
-corner(widget, 14)
+corner(widget, 14); widget.ClipsDescendants = true
+
+local widgetBg = Instance.new("ImageLabel", widget)
+widgetBg.Size = UDim2.new(1,0,1,0); widgetBg.BackgroundTransparency = 1
+widgetBg.Image = ""; widgetBg.ScaleType = Enum.ScaleType.Crop; widgetBg.ZIndex = 0
 
 local widgetTime = Instance.new("TextLabel", widget)
 widgetTime.Size=UDim2.new(0.6,0,0,26); widgetTime.Position=UDim2.new(0,12,0,12)
 widgetTime.BackgroundTransparency=1; widgetTime.Text=""; widgetTime.TextColor3=Color3.new(1,1,1)
 widgetTime.Font=Enum.Font.GothamBlack; widgetTime.TextSize=22; widgetTime.TextXAlignment=Enum.TextXAlignment.Left
+widgetTime.ZIndex=1
 
 local widgetDate = Instance.new("TextLabel", widget)
 widgetDate.Size=UDim2.new(0.6,0,0,14); widgetDate.Position=UDim2.new(0,12,0,38)
 widgetDate.BackgroundTransparency=1; widgetDate.TextColor3=Color3.new(0.8,0.8,0.8)
 widgetDate.Font=Enum.Font.Gotham; widgetDate.TextSize=10; widgetDate.TextXAlignment=Enum.TextXAlignment.Left
+widgetDate.ZIndex=1
+
+local function applyWidget()
+    if appSettings.widgetUrl and appSettings.widgetUrl ~= "" then
+        local asset = downloadAndCache(appSettings.widgetUrl, "PhoneIDViewer/widget.png")
+        if asset then
+            widgetBg.Image = asset
+            widgetBg.BackgroundTransparency = 0
+        else
+            widgetBg.Image = ""
+            widgetBg.BackgroundTransparency = 1
+        end
+    else
+        widgetBg.Image = ""
+        widgetBg.BackgroundTransparency = 1
+    end
+end
+applyWidget()
 
 task.spawn(function()
     while widget.Parent do
@@ -398,13 +461,20 @@ end
 shared.refreshCurrentApp = function()
     if currentAppFunc then clearApp(); currentAppFunc(appContent, shared) end
 end
+shared.applyWallpaper = applyWallpaper
+shared.applyWidget = applyWidget
 
--- Home Screen Grid
+-- Home Screen Grid (DIPERKECIL)
 local appGrid = Instance.new("Frame", homeScreen)
-appGrid.Size = UDim2.new(1,-16,1,-20); appGrid.Position = UDim2.new(0,8,0,8); appGrid.BackgroundTransparency = 1
+appGrid.Size = UDim2.new(1,-20,1,-20)
+appGrid.Position = UDim2.new(0,10,0,72)  -- Di bawah widget
+appGrid.BackgroundTransparency = 1
+
 local appGridLayout = Instance.new("UIGridLayout", appGrid)
-appGridLayout.CellSize = UDim2.new(0,82,0,96); appGridLayout.CellPadding = UDim2.new(0,10,0,12)
+appGridLayout.CellSize = UDim2.new(0,64,0,78)
+appGridLayout.CellPadding = UDim2.new(0,8,0,10)
 appGridLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+appGridLayout.VerticalAlignment = Enum.VerticalAlignment.Top
 
 -- Drag
 do
@@ -438,34 +508,27 @@ local phoneTool = ensureTool()
 if phoneTool then phoneTool.Equipped:Connect(openPhone); phoneTool.Unequipped:Connect(closePhone) end
 LocalPlayer.CharacterAdded:Connect(function() task.wait(1); ensureTool() end)
 
--- ===================== LOAD ALL FEATURES & BUILD HOME =====================
+-- ===================== LOAD ALL FEATURES =====================
 spawn(function()
-    -- Load semua modul
     for _, feature in ipairs(FeatureList) do
         FeatureLoader:LoadFeature(feature)
         task.wait(0.2)
     end
 
-    -- Ambil data ikon
-    local iconData = FeatureLoader.LoadedFeatures["Icons"]
-    if not iconData then
-        warn("[PhoneIDViewer] Icons gagal dimuat, fallback ke teks.")
-        iconData = {}
-    end
+    local iconData = FeatureLoader.LoadedFeatures["Icons"] or {}
 
-    -- Bangun grid aplikasi
     for i, name in ipairs(appOrder) do
         local icon = iconData[name] or {}
         local builder = icon.Builder or icon
         local color = icon.Color or Color3.fromRGB(255,255,255)
 
         local holder = Instance.new("Frame", appGrid)
-        holder.Size = UDim2.new(0,82,0,96); holder.BackgroundTransparency = 1; holder.LayoutOrder = i
+        holder.Size = UDim2.new(0,64,0,78); holder.BackgroundTransparency = 1; holder.LayoutOrder = i
 
         local iconBtn = Instance.new("TextButton", holder)
-        iconBtn.Size = UDim2.new(0,66,0,66); iconBtn.Position = UDim2.new(0.5,-33,0,0)
+        iconBtn.Size = UDim2.new(0,56,0,56); iconBtn.Position = UDim2.new(0.5,-28,0,0)
         iconBtn.BackgroundColor3 = color; iconBtn.Text = ""; iconBtn.AutoButtonColor = false
-        corner(iconBtn, 18); stroke(iconBtn, T.Border, 1, 0.4); pressFX(iconBtn)
+        corner(iconBtn, 16); stroke(iconBtn, T.Border, 1, 0.4); pressFX(iconBtn)
 
         if builder then
             pcall(function() builder(iconBtn, Color3.new(1,1,1)) end)
@@ -473,12 +536,13 @@ spawn(function()
             local lbl = Instance.new("TextLabel", iconBtn)
             lbl.Size = UDim2.new(1,0,1,0); lbl.BackgroundTransparency = 1
             lbl.Text = name:sub(1,1); lbl.TextColor3 = Color3.new(1,1,1)
-            lbl.Font = Enum.Font.GothamBlack; lbl.TextSize = 28
+            lbl.Font = Enum.Font.GothamBlack; lbl.TextSize = 22
         end
 
         local label = Instance.new("TextLabel", holder)
-        label.Size = UDim2.new(1,0,0,22); label.Position = UDim2.new(0,0,0,70); label.BackgroundTransparency = 1
-        label.Text = name; label.TextColor3 = T.Text; label.Font = Enum.Font.Gotham; label.TextSize = 11; label.TextWrapped = true
+        label.Size = UDim2.new(1,0,0,18); label.Position = UDim2.new(0,0,0,58)
+        label.BackgroundTransparency = 1; label.Text = name
+        label.TextColor3 = T.Text; label.Font = Enum.Font.Gotham; label.TextSize = 10; label.TextWrapped = true
 
         iconBtn.MouseButton1Click:Connect(function() openApp(name) end)
     end
