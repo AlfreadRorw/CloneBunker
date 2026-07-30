@@ -20,12 +20,10 @@ local LocalPlayer = Players.LocalPlayer
 local moduleCache = {}
 
 local function fetchModule(path)
-    -- Cek cache dulu
     if moduleCache[path] then
         return moduleCache[path]
     end
     
-    -- Coba download dari GitHub
     local url = REPO_URL .. "/" .. path
     local ok, result = pcall(function()
         local code = game:HttpGet(url)
@@ -185,14 +183,15 @@ end
 -- ===================== STATE =====================
 local selectedTargetPlayer = nil
 
--- ===================== TOOL =====================
+-- ===================== TOOL (FIXED - No TextureId) =====================
 local function ensureTool()
     local bp = LocalPlayer:FindFirstChild("Backpack")
     if not bp then return nil end
     if bp:FindFirstChild("Phone") then return bp.Phone end
     local tool = Instance.new("Tool")
-    tool.Name = "Phone"; tool.RequiresHandle = false
-    tool.CanBeDropped = false; tool.TextureId = "rbxassetid://17382859935"
+    tool.Name = "Phone"
+    tool.RequiresHandle = false
+    tool.CanBeDropped = false
     tool.Parent = bp
     return tool
 end
@@ -459,7 +458,6 @@ local appModuleNames = {"Players", "Clone", "Body", "Accessories", "Preset", "Fa
 local appModules = {}
 local iconData = {}
 
--- Fetch semua aplikasi
 for _, name in ipairs(appModuleNames) do
     local mod = fetchModule("Applications/" .. name .. ".lua")
     if mod and type(mod) == "function" then
@@ -467,7 +465,6 @@ for _, name in ipairs(appModuleNames) do
     end
 end
 
--- Fetch semua icon
 for _, name in ipairs(appModuleNames) do
     local mod = fetchModule("Icons/" .. name .. ".lua")
     if mod and type(mod) == "table" then
@@ -581,4 +578,4 @@ LocalPlayer.CharacterAdded:Connect(function()
     ensureTool()
 end)
 
-print("[PhoneIDViewer v4.0] Auto-download ready. " .. i .. " aplikasi termuat.")
+print("[PhoneIDViewer v4.0] Siap! " .. i .. " aplikasi termuat.")
