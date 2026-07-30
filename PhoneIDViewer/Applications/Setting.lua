@@ -1,144 +1,292 @@
 return function(appFrame, shared)
-    local T = shared.T
-    local Players = game:GetService("Players")
-    local LocalPlayer = Players.LocalPlayer
-
-    -- Profile
-    local profile = shared.stroke(shared.corner(Instance.new("Frame", appFrame), 12), T.Accent, 1.5, 0.3)
-    profile.Size = UDim2.new(1,0,0,86); profile.BackgroundColor3 = T.Card2; profile.LayoutOrder = 0
-
-    local av = shared.stroke(shared.corner(Instance.new("ImageLabel", profile), 100), T.Accent, 2, 0.2)
-    av.Size = UDim2.new(0,60,0,60); av.Position = UDim2.new(0,13,0.5,-30); av.BackgroundColor3 = T.BG
-    av.Image = "https://www.roblox.com/headshot-thumbnail/image?userId="..LocalPlayer.UserId.."&width=150&height=150&format=png"
-
-    local nameLbl = Instance.new("TextLabel", profile)
-    nameLbl.Size = UDim2.new(1,-90,0,22); nameLbl.Position = UDim2.new(0,82,0,14); nameLbl.BackgroundTransparency = 1
-    nameLbl.Text = "Alfread"; nameLbl.TextColor3 = T.Text; nameLbl.Font = Enum.Font.GothamBlack; nameLbl.TextSize = 16
-    nameLbl.TextXAlignment = Enum.TextXAlignment.Left
-
-    local tagLbl = Instance.new("TextLabel", profile)
-    tagLbl.Size = UDim2.new(1,-90,0,16); tagLbl.Position = UDim2.new(0,82,0,38); tagLbl.BackgroundTransparency = 1
-    tagLbl.Text = "Phone ID Viewer v5.0"; tagLbl.TextColor3 = T.Text2; tagLbl.Font = Enum.Font.Gotham; tagLbl.TextSize = 10
-    tagLbl.TextXAlignment = Enum.TextXAlignment.Left
-
-    local verLbl = Instance.new("TextLabel", profile)
-    verLbl.Size = UDim2.new(1,-90,0,14); verLbl.Position = UDim2.new(0,82,0,56); verLbl.BackgroundTransparency = 1
-    verLbl.Text = "Update via GitHub"; verLbl.TextColor3 = Color3.fromRGB(120,120,120); verLbl.Font = Enum.Font.Code; verLbl.TextSize = 9
-    verLbl.TextXAlignment = Enum.TextXAlignment.Left
-
-    -- Tema
-    local themeLbl = Instance.new("TextLabel", appFrame)
-    themeLbl.Size = UDim2.new(1,0,0,20); themeLbl.BackgroundTransparency = 1; themeLbl.LayoutOrder = 1
-    themeLbl.Text = "Tema Warna"; themeLbl.TextColor3 = T.Text2; themeLbl.Font = Enum.Font.GothamBold; themeLbl.TextSize = 11
-    themeLbl.TextXAlignment = Enum.TextXAlignment.Left
-
-    local themeGrid = Instance.new("Frame", appFrame)
-    themeGrid.Size = UDim2.new(1,0,0,130); themeGrid.BackgroundTransparency = 1; themeGrid.LayoutOrder = 2
-    local gridLayout = Instance.new("UIGridLayout", themeGrid)
-    gridLayout.CellSize = UDim2.new(0,84,0,60); gridLayout.CellPadding = UDim2.new(0,8,0,8)
-
-    for i, preset in ipairs(shared.THEME_PRESETS) do
-        local swatch = shared.pressFX(shared.stroke(shared.corner(Instance.new("TextButton", themeGrid), 10), i==shared.appSettings.themeIndex and preset.Accent or T.Border, i==shared.appSettings.themeIndex and 2 or 1))
-        swatch.Size = UDim2.new(0,84,0,60); swatch.BackgroundColor3 = T.Card2; swatch.Text = ""; swatch.AutoButtonColor = false; swatch.LayoutOrder = i
-        local dot = shared.corner(Instance.new("Frame", swatch), 100)
-        dot.Size = UDim2.new(0,22,0,22); dot.Position = UDim2.new(0.5,-11,0,6); dot.BackgroundColor3 = preset.Accent
-        local swLbl = Instance.new("TextLabel", swatch)
-        swLbl.Size = UDim2.new(1,0,0,16); swLbl.Position = UDim2.new(0,0,0,32); swLbl.BackgroundTransparency = 1
-        swLbl.Text = preset.Name; swLbl.TextColor3 = T.Text2; swLbl.Font = Enum.Font.GothamBold; swLbl.TextSize = 10
-        swatch.MouseButton1Click:Connect(function()
-            shared.appSettings.themeIndex = i
-            T.Accent = preset.Accent; T.OnAccent = preset.OnAccent
-            shared.persistSettings(); shared.pulseIsland("Tema: "..preset.Name)
-        end)
-    end
-
-    -- Wallpaper
-    local wallLbl = Instance.new("TextLabel", appFrame)
-    wallLbl.Size = UDim2.new(1,0,0,20); wallLbl.BackgroundTransparency = 1; wallLbl.LayoutOrder = 3
-    wallLbl.Text = "Wallpaper (URL Catbox)"; wallLbl.TextColor3 = T.Text2; wallLbl.Font = Enum.Font.GothamBold; wallLbl.TextSize = 11
-    wallLbl.TextXAlignment = Enum.TextXAlignment.Left
-
-    local wallCard = shared.stroke(shared.corner(Instance.new("Frame", appFrame), 12), T.Border, 1, 0.3)
-    wallCard.Size = UDim2.new(1,0,0,120); wallCard.BackgroundColor3 = T.Card2; wallCard.LayoutOrder = 4
-
-    local wallHint = Instance.new("TextLabel", wallCard)
-    wallHint.Size = UDim2.new(1,-20,0,28); wallHint.Position = UDim2.new(0,10,0,8); wallHint.BackgroundTransparency = 1
-    wallHint.Text = "Masukkan URL gambar dari Catbox"; wallHint.TextColor3 = T.Text2; wallHint.Font = Enum.Font.Gotham; wallHint.TextSize = 9
-    wallHint.TextWrapped = true; wallHint.TextXAlignment = Enum.TextXAlignment.Left
-
-    local wallInput = shared.stroke(shared.corner(Instance.new("TextBox", wallCard), 8), T.Border, 1, 0.3)
-    wallInput.Size = UDim2.new(1,-20,0,32); wallInput.Position = UDim2.new(0,10,0,40); wallInput.BackgroundColor3 = T.Card
-    wallInput.PlaceholderText = "https://files.catbox.moe/xxxxx.png"; wallInput.Text = shared.appSettings.wallpaperUrl or ""
-    wallInput.TextColor3 = T.Text; wallInput.Font = Enum.Font.Gotham; wallInput.TextSize = 11; wallInput.ClearTextOnFocus = false
-
-    local wallApplyBtn = shared.pressFX(shared.corner(Instance.new("TextButton", wallCard), 8))
-    wallApplyBtn.Size = UDim2.new(0.48,-14,0,32); wallApplyBtn.Position = UDim2.new(0,10,0,80)
-    wallApplyBtn.BackgroundColor3 = T.Accent; wallApplyBtn.Text = "Terapkan"; wallApplyBtn.TextColor3 = T.OnAccent
-    wallApplyBtn.Font = Enum.Font.GothamBold; wallApplyBtn.TextSize = 12; wallApplyBtn.AutoButtonColor = false
-    wallApplyBtn.MouseButton1Click:Connect(function()
-        shared.appSettings.wallpaperUrl = wallInput.Text
-        shared.persistSettings()
-        shared.applyWallpaper()
-        shared.pulseIsland("Wallpaper diterapkan!")
-    end)
-
-    local wallClearBtn = shared.pressFX(shared.corner(Instance.new("TextButton", wallCard), 8))
-    wallClearBtn.Size = UDim2.new(0.48,-14,0,32); wallClearBtn.Position = UDim2.new(0.52,4,0,80)
-    wallClearBtn.BackgroundColor3 = Color3.fromRGB(50,30,35); wallClearBtn.Text = "Hapus"; wallClearBtn.TextColor3 = T.Red
-    wallClearBtn.Font = Enum.Font.GothamBold; wallClearBtn.TextSize = 12; wallClearBtn.AutoButtonColor = false
-    wallClearBtn.MouseButton1Click:Connect(function()
-        wallInput.Text = ""
-        shared.appSettings.wallpaperUrl = ""
-        shared.persistSettings()
-        shared.applyWallpaper()
-        shared.pulseIsland("Wallpaper dihapus")
-    end)
-
-    -- Widget
-    local widLbl = Instance.new("TextLabel", appFrame)
-    widLbl.Size = UDim2.new(1,0,0,20); widLbl.BackgroundTransparency = 1; widLbl.LayoutOrder = 5
-    widLbl.Text = "Widget Background (URL Catbox)"; widLbl.TextColor3 = T.Text2; widLbl.Font = Enum.Font.GothamBold; widLbl.TextSize = 11
-    widLbl.TextXAlignment = Enum.TextXAlignment.Left
-
-    local widCard = shared.stroke(shared.corner(Instance.new("Frame", appFrame), 12), T.Border, 1, 0.3)
-    widCard.Size = UDim2.new(1,0,0,120); widCard.BackgroundColor3 = T.Card2; widCard.LayoutOrder = 6
-
-    local widHint = Instance.new("TextLabel", widCard)
-    widHint.Size = UDim2.new(1,-20,0,28); widHint.Position = UDim2.new(0,10,0,8); widHint.BackgroundTransparency = 1
-    widHint.Text = "Masukkan URL gambar untuk Widget"; widHint.TextColor3 = T.Text2; widHint.Font = Enum.Font.Gotham; widHint.TextSize = 9
-    widHint.TextWrapped = true; widHint.TextXAlignment = Enum.TextXAlignment.Left
-
-    local widInput = shared.stroke(shared.corner(Instance.new("TextBox", widCard), 8), T.Border, 1, 0.3)
-    widInput.Size = UDim2.new(1,-20,0,32); widInput.Position = UDim2.new(0,10,0,40); widInput.BackgroundColor3 = T.Card
-    widInput.PlaceholderText = "https://files.catbox.moe/xxxxx.png"; widInput.Text = shared.appSettings.widgetUrl or ""
-    widInput.TextColor3 = T.Text; widInput.Font = Enum.Font.Gotham; widInput.TextSize = 11; widInput.ClearTextOnFocus = false
-
-    local widApplyBtn = shared.pressFX(shared.corner(Instance.new("TextButton", widCard), 8))
-    widApplyBtn.Size = UDim2.new(0.48,-14,0,32); widApplyBtn.Position = UDim2.new(0,10,0,80)
-    widApplyBtn.BackgroundColor3 = T.Accent; widApplyBtn.Text = "Terapkan"; widApplyBtn.TextColor3 = T.OnAccent
-    widApplyBtn.Font = Enum.Font.GothamBold; widApplyBtn.TextSize = 12; widApplyBtn.AutoButtonColor = false
-    widApplyBtn.MouseButton1Click:Connect(function()
-        shared.appSettings.widgetUrl = widInput.Text
-        shared.persistSettings()
-        shared.applyWidget()
-        shared.pulseIsland("Widget diterapkan!")
-    end)
-
-    local widClearBtn = shared.pressFX(shared.corner(Instance.new("TextButton", widCard), 8))
-    widClearBtn.Size = UDim2.new(0.48,-14,0,32); widClearBtn.Position = UDim2.new(0.52,4,0,80)
-    widClearBtn.BackgroundColor3 = Color3.fromRGB(50,30,35); widClearBtn.Text = "Hapus"; widClearBtn.TextColor3 = T.Red
-    widClearBtn.Font = Enum.Font.GothamBold; widClearBtn.TextSize = 12; widClearBtn.AutoButtonColor = false
-    widClearBtn.MouseButton1Click:Connect(function()
-        widInput.Text = ""
-        shared.appSettings.widgetUrl = ""
-        shared.persistSettings()
-        shared.applyWidget()
-        shared.pulseIsland("Widget dihapus")
-    end)
-
-    -- Footer
-    local footer = Instance.new("TextLabel", appFrame)
-    footer.Size = UDim2.new(1,0,0,36); footer.BackgroundTransparency = 1; footer.LayoutOrder = 7
-    footer.Text = "Dibuat oleh Alfread.\nGratis dipakai & dimodifikasi."; footer.TextColor3 = T.Text2
-    footer.Font = Enum.Font.Gotham; footer.TextSize = 9; footer.TextWrapped = true
+	local Players = game:GetService("Players")
+	local player = Players.LocalPlayer
+	local T = shared.T
+	local THEME_PRESETS = shared.THEME_PRESETS
+	local appSettings = shared.appSettings
+	local saveJSON = shared.saveJSON
+	local applyWallpaper = shared.applyWallpaper
+	local applyWidget = shared.applyWidget
+	local pulseIsland = shared.pulseIsland
+	local refreshCurrentApp = shared.refreshCurrentApp
+	
+	-- Profile Card
+	local profileCard = Instance.new("Frame")
+	profileCard.Size = UDim2.new(1, -20, 0, 80)
+	profileCard.Position = UDim2.new(0, 10, 0, 10)
+	profileCard.BackgroundColor3 = T.Card
+	profileCard.BorderSizePixel = 0
+	shared.corner(profileCard, 14)
+	profileCard.Parent = appFrame
+	
+	local avatar = Instance.new("ImageLabel")
+	avatar.Size = UDim2.new(0, 55, 0, 55)
+	avatar.Position = UDim2.new(0, 12, 0.5, -27)
+	avatar.BackgroundTransparency = 1
+	shared.corner(avatar, 27)
+	pcall(function()
+		avatar.Image = Players:GetUserThumbnailAsync(player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
+	end)
+	avatar.Parent = profileCard
+	
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Size = UDim2.new(0, 150, 0, 22)
+	nameLabel.Position = UDim2.new(0, 80, 0, 15)
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.Text = "Phone ID Viewer"
+	nameLabel.TextColor3 = T.Text
+	nameLabel.TextSize = 15
+	nameLabel.Font = Enum.Font.GothamBold
+	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+	nameLabel.Parent = profileCard
+	
+	local versionLabel = Instance.new("TextLabel")
+	versionLabel.Size = UDim2.new(0, 150, 0, 16)
+	versionLabel.Position = UDim2.new(0, 80, 0, 38)
+	versionLabel.BackgroundTransparency = 1
+	versionLabel.Text = "Version 1.0.0"
+	versionLabel.TextColor3 = T.SecondaryText
+	versionLabel.TextSize = 11
+	versionLabel.Font = Enum.Font.Gotham
+	versionLabel.TextXAlignment = Enum.TextXAlignment.Left
+	versionLabel.Parent = profileCard
+	
+	local devLabel = Instance.new("TextLabel")
+	devLabel.Size = UDim2.new(0, 150, 0, 16)
+	devLabel.Position = UDim2.new(0, 80, 0, 54)
+	devLabel.BackgroundTransparency = 1
+	devLabel.Text = "by AlfreadRorw"
+	devLabel.TextColor3 = T.Accent
+	devLabel.TextSize = 10
+	devLabel.Font = Enum.Font.Gotham
+	devLabel.TextXAlignment = Enum.TextXAlignment.Left
+	devLabel.Parent = profileCard
+	
+	-- Theme Section
+	local themeSectionLabel = Instance.new("TextLabel")
+	themeSectionLabel.Size = UDim2.new(1, -20, 0, 22)
+	themeSectionLabel.Position = UDim2.new(0, 15, 0, 100)
+	themeSectionLabel.BackgroundTransparency = 1
+	themeSectionLabel.Text = "Color Theme"
+	themeSectionLabel.TextColor3 = T.Text
+	themeSectionLabel.TextSize = 14
+	themeSectionLabel.Font = Enum.Font.GothamSemibold
+	themeSectionLabel.TextXAlignment = Enum.TextXAlignment.Left
+	themeSectionLabel.Parent = appFrame
+	
+	local themeNames = {"Putih", "Ungu", "Biru", "Merah", "Emas", "Hijau"}
+	local themeColors = {
+		Color3.fromRGB(255, 255, 255),
+		Color3.fromRGB(150, 100, 255),
+		Color3.fromRGB(0, 150, 255),
+		Color3.fromRGB(255, 60, 60),
+		Color3.fromRGB(255, 200, 50),
+		Color3.fromRGB(50, 200, 100)
+	}
+	
+	local themeGrid = Instance.new("Frame")
+	themeGrid.Size = UDim2.new(1, -20, 0, 55)
+	themeGrid.Position = UDim2.new(0, 10, 0, 125)
+	themeGrid.BackgroundTransparency = 1
+	themeGrid.Parent = appFrame
+	
+	for i, themeName in ipairs(themeNames) do
+		local swatch = Instance.new("TextButton")
+		swatch.Size = UDim2.new(0, 42, 0, 42)
+		swatch.Position = UDim2.new(0, (i - 1) * 48 + 5, 0, 5)
+		swatch.BackgroundColor3 = themeColors[i]
+		swatch.BorderSizePixel = 0
+		shared.corner(swatch, 21)
+		swatch.Text = ""
+		swatch.Parent = themeGrid
+		
+		-- Stroke for white theme
+		if themeName == "Putih" then
+			shared.stroke(swatch, Color3.fromRGB(200, 200, 200), 1)
+		end
+		
+		-- Accent dot for active
+		if appSettings.theme == themeName then
+			local dot = Instance.new("Frame")
+			dot.Size = UDim2.new(0, 10, 0, 10)
+			dot.Position = UDim2.new(0.5, -5, 0.5, -5)
+			dot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+			dot.BorderSizePixel = 0
+			Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
+			dot.Name = "ActiveDot"
+			dot.Parent = swatch
+			
+			if themeName == "Putih" then
+				dot.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+			end
+		end
+		
+		swatch.MouseButton1Click:Connect(function()
+			appSettings.theme = themeName
+			saveJSON("PhoneIDViewer_Settings.json", appSettings)
+			
+			-- Update theme
+			local newT = THEME_PRESETS[themeName]
+			shared.T = newT
+			
+			-- Rebuild setting with new theme
+			pulseIsland("Theme: " .. themeName, 2)
+			task.wait(0.3)
+			refreshCurrentApp()
+		end)
+	end
+	
+	-- Wallpaper Section
+	local wallpaperSectionLabel = Instance.new("TextLabel")
+	wallpaperSectionLabel.Size = UDim2.new(1, -20, 0, 22)
+	wallpaperSectionLabel.Position = UDim2.new(0, 15, 0, 190)
+	wallpaperSectionLabel.BackgroundTransparency = 1
+	wallpaperSectionLabel.Text = "Wallpaper"
+	wallpaperSectionLabel.TextColor3 = T.Text
+	wallpaperSectionLabel.TextSize = 14
+	wallpaperSectionLabel.Font = Enum.Font.GothamSemibold
+	wallpaperSectionLabel.TextXAlignment = Enum.TextXAlignment.Left
+	wallpaperSectionLabel.Parent = appFrame
+	
+	local wallpaperInput = Instance.new("TextBox")
+	wallpaperInput.Size = UDim2.new(1, -30, 0, 34)
+	wallpaperInput.Position = UDim2.new(0, 15, 0, 215)
+	wallpaperInput.BackgroundColor3 = T.Card
+	wallpaperInput.BorderSizePixel = 0
+	shared.corner(wallpaperInput, 10)
+	shared.stroke(wallpaperInput, T.Stroke)
+	wallpaperInput.Font = Enum.Font.Gotham
+	wallpaperInput.TextSize = 12
+	wallpaperInput.TextColor3 = T.Text
+	wallpaperInput.PlaceholderText = "Catbox URL for wallpaper..."
+	wallpaperInput.PlaceholderColor3 = T.SecondaryText
+	wallpaperInput.Text = appSettings.wallpaperURL or ""
+	wallpaperInput.ClearTextOnFocus = false
+	wallpaperInput.Parent = appFrame
+	
+	local wallpaperButtons = Instance.new("Frame")
+	wallpaperButtons.Size = UDim2.new(1, -30, 0, 30)
+	wallpaperButtons.Position = UDim2.new(0, 15, 0, 255)
+	wallpaperButtons.BackgroundTransparency = 1
+	wallpaperButtons.Parent = appFrame
+	
+	local applyWallBtn = Instance.new("TextButton")
+	applyWallBtn.Size = UDim2.new(0, 80, 0, 28)
+	applyWallBtn.Position = UDim2.new(0, 0, 0, 0)
+	applyWallBtn.BackgroundColor3 = T.Accent
+	applyWallBtn.BorderSizePixel = 0
+	shared.corner(applyWallBtn, 8)
+	applyWallBtn.Text = "Apply"
+	applyWallBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	applyWallBtn.TextSize = 12
+	applyWallBtn.Font = Enum.Font.GothamSemibold
+	applyWallBtn.Parent = wallpaperButtons
+	
+	applyWallBtn.MouseButton1Click:Connect(function()
+		local url = wallpaperInput.Text
+		appSettings.wallpaperURL = url
+		saveJSON("PhoneIDViewer_Settings.json", appSettings)
+		if applyWallpaper(url) then
+			pulseIsland("Wallpaper applied!", 2)
+		else
+			pulseIsland("Failed to load wallpaper", 2)
+		end
+	end)
+	
+	local removeWallBtn = Instance.new("TextButton")
+	removeWallBtn.Size = UDim2.new(0, 80, 0, 28)
+	removeWallBtn.Position = UDim2.new(0, 90, 0, 0)
+	removeWallBtn.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+	removeWallBtn.BorderSizePixel = 0
+	shared.corner(removeWallBtn, 8)
+	removeWallBtn.Text = "Remove"
+	removeWallBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	removeWallBtn.TextSize = 12
+	removeWallBtn.Font = Enum.Font.GothamSemibold
+	removeWallBtn.Parent = wallpaperButtons
+	
+	removeWallBtn.MouseButton1Click:Connect(function()
+		appSettings.wallpaperURL = ""
+		saveJSON("PhoneIDViewer_Settings.json", appSettings)
+		applyWallpaper("")
+		wallpaperInput.Text = ""
+		pulseIsland("Wallpaper removed", 1.5)
+	end)
+	
+	-- Widget Background Section
+	local widgetSectionLabel = Instance.new("TextLabel")
+	widgetSectionLabel.Size = UDim2.new(1, -20, 0, 22)
+	widgetSectionLabel.Position = UDim2.new(0, 15, 0, 295)
+	widgetSectionLabel.BackgroundTransparency = 1
+	widgetSectionLabel.Text = "Widget Background"
+	widgetSectionLabel.TextColor3 = T.Text
+	widgetSectionLabel.TextSize = 14
+	widgetSectionLabel.Font = Enum.Font.GothamSemibold
+	widgetSectionLabel.TextXAlignment = Enum.TextXAlignment.Left
+	widgetSectionLabel.Parent = appFrame
+	
+	local widgetInput = Instance.new("TextBox")
+	widgetInput.Size = UDim2.new(1, -30, 0, 34)
+	widgetInput.Position = UDim2.new(0, 15, 0, 320)
+	widgetInput.BackgroundColor3 = T.Card
+	widgetInput.BorderSizePixel = 0
+	shared.corner(widgetInput, 10)
+	shared.stroke(widgetInput, T.Stroke)
+	widgetInput.Font = Enum.Font.Gotham
+	widgetInput.TextSize = 12
+	widgetInput.TextColor3 = T.Text
+	widgetInput.PlaceholderText = "Catbox URL for widget background..."
+	widgetInput.PlaceholderColor3 = T.SecondaryText
+	widgetInput.Text = appSettings.widgetBackgroundURL or ""
+	widgetInput.ClearTextOnFocus = false
+	widgetInput.Parent = appFrame
+	
+	local widgetButtons = Instance.new("Frame")
+	widgetButtons.Size = UDim2.new(1, -30, 0, 30)
+	widgetButtons.Position = UDim2.new(0, 15, 0, 360)
+	widgetButtons.BackgroundTransparency = 1
+	widgetButtons.Parent = appFrame
+	
+	local applyWidgetBtn = Instance.new("TextButton")
+	applyWidgetBtn.Size = UDim2.new(0, 80, 0, 28)
+	applyWidgetBtn.Position = UDim2.new(0, 0, 0, 0)
+	applyWidgetBtn.BackgroundColor3 = T.Accent
+	applyWidgetBtn.BorderSizePixel = 0
+	shared.corner(applyWidgetBtn, 8)
+	applyWidgetBtn.Text = "Apply"
+	applyWidgetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	applyWidgetBtn.TextSize = 12
+	applyWidgetBtn.Font = Enum.Font.GothamSemibold
+	applyWidgetBtn.Parent = widgetButtons
+	
+	applyWidgetBtn.MouseButton1Click:Connect(function()
+		local url = widgetInput.Text
+		appSettings.widgetBackgroundURL = url
+		saveJSON("PhoneIDViewer_Settings.json", appSettings)
+		if applyWidget(url) then
+			pulseIsland("Widget bg applied!", 2)
+		else
+			pulseIsland("Failed to load widget bg", 2)
+		end
+	end)
+	
+	local removeWidgetBtn = Instance.new("TextButton")
+	removeWidgetBtn.Size = UDim2.new(0, 80, 0, 28)
+	removeWidgetBtn.Position = UDim2.new(0, 90, 0, 0)
+	removeWidgetBtn.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+	removeWidgetBtn.BorderSizePixel = 0
+	shared.corner(removeWidgetBtn, 8)
+	removeWidgetBtn.Text = "Remove"
+	removeWidgetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	removeWidgetBtn.TextSize = 12
+	removeWidgetBtn.Font = Enum.Font.GothamSemibold
+	removeWidgetBtn.Parent = widgetButtons
+	
+	removeWidgetBtn.MouseButton1Click:Connect(function()
+		appSettings.widgetBackgroundURL = ""
+		saveJSON("PhoneIDViewer_Settings.json", appSettings)
+		applyWidget("")
+		widgetInput.Text = ""
+		pulseIsland("Widget bg removed", 1.5)
+	end)
 end
