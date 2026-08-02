@@ -2328,7 +2328,7 @@ local function openTeleportApp()
     end
 end
 
--- ================= COMMAND APP (FULL - ALL COMMANDS + COLOR PICKER) =================
+-- ================= COMMAND APP (REPLACES RESET) =================
 local function openCommandApp()
     -- ==================== HEADER ====================
     local headerCard = Instance.new("Frame", appContent)
@@ -2363,71 +2363,38 @@ local function openCommandApp()
     headerSub.Size = UDim2.new(1, -24, 0, 14)
     headerSub.Position = UDim2.new(0, 12, 0, 30)
     headerSub.BackgroundTransparency = 1
-    headerSub.Text = "re | rejoin | sit | size | reset | sync | fx | gear"
+    headerSub.Text = "re | rejoin | sit | size"
     headerSub.TextColor3 = Color3.fromRGB(160, 160, 180)
     headerSub.Font = Enum.Font.Gotham
     headerSub.TextSize = 9
     headerSub.TextXAlignment = Enum.TextXAlignment.Left
     
-    -- ==================== COLOR LIST ====================
-    local colorList = {
-        "red", "dark red", "pink", "hot pink", "magenta",
-        "orange", "neon orange", "yellow", "neon yellow",
-        "lime", "green", "dark green", "neon green",
-        "teal", "cyan", "blue", "neon blue", "sky blue",
-        "dark blue", "navy blue", "purple", "violet", "lavender",
-        "white", "light grey", "grey", "dark grey", "black",
-        "brown", "dark brown", "tan", "sand", "gold", "pearl", "off"
-    }
-    
-    local selectedColor = "red"
-    
-    -- ==================== COMMAND HELPER ====================
-    local function fireCommand(cmdName, args)
-        local remote = ReplicatedStorage
-        local remotePath = CONFIG.REMOTE_PATH or "Remotes.Command.CommandEvent"
-        
-        for _, part in ipairs(remotePath:split(".")) do
-            local found = remote:FindFirstChild(part)
-            if found then
-                remote = found
-            else
-                local success, result = pcall(function()
-                    return remote:WaitForChild(part, 2)
-                end)
-                if success and result then
-                    remote = result
-                else
-                    showDynamicNotification("Remote not found: " .. part, T.Red)
-                    return false
-                end
-            end
-        end
-        
-        pcall(function()
-            remote:FireServer(cmdName, args)
-        end)
-        
-        return true
-    end
-    
-    -- ==================== BASIC COMMANDS ====================
-    local basicCommands = {
+    -- ==================== COMMAND CARDS ====================
+    local commands = {
         {
             name = "Reset Character",
             cmd = "re",
             desc = "Resets your character using 're' command",
+            icon = "Reset",
             color = Color3.fromRGB(255, 80, 80),
-            action = function() resetCharacter() end
+            action = function()
+                resetCharacter()
+                showDynamicNotification("Character reset!", T.Green)
+            end
         },
         {
             name = "Rejoin Server",
             cmd = "rejoin",
             desc = "Rejoins the current server",
+            icon = "Server",
             color = Color3.fromRGB(80, 150, 255),
             action = function()
+                local placeId = game.PlaceId
+                local jobId = game.JobId
+                showDynamicNotification("Rejoining server...", T.Gold)
+                task.wait(0.5)
                 pcall(function()
-                    TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId)
+                    TeleportService:TeleportToPlaceInstance(placeId, jobId)
                 end)
             end
         },
@@ -2435,598 +2402,237 @@ local function openCommandApp()
             name = "Sit Character",
             cmd = "sit",
             desc = "Makes your character sit down",
+            icon = "Body",
             color = Color3.fromRGB(255, 180, 50),
             action = function()
                 local char = LocalPlayer.Character
                 if char and char:FindFirstChildOfClass("Humanoid") then
                     char.Humanoid.Sit = true
+                    showDynamicNotification("Sitting!", T.Green)
+                else
+                    showDynamicNotification("No character found!", T.Red)
                 end
             end
         },
         {
-            name = "Reset (Command)",
-            cmd = "reset",
-            desc = "Sends 'reset' command to server",
-            color = Color3.fromRGB(255, 100, 100),
-            action = function()
-                fireCommand("reset", {"reset"})
-            end
+            name = "Change Size",
+            cmd = "size",
+            desc = "Adjust your character size (0.5 - 1.0)",
+            icon = "Size",
+            color = Color3.fromRGB(100, 200, 100),
+            action = nil, -- Special handling (slider)
+            hasSlider = true
         }
     }
     
-    -- ==================== SYNC COMMANDS ====================
-    local syncCommands = {
-        {
-            name = "Sync Player",
-            cmd = "sync",
-            desc = "Sync with another player (enter ID below)",
-            color = Color3.fromRGB(100, 200, 255),
-            hasInput = true,
-            inputPlaceholder = "Enter Player UserID...",
-            action = function(playerId)
-                fireCommand("sync", {"sync", "id " .. playerId})
-            end
-        },
-        {
-            name = "Unsync",
-            cmd = "unsync",
-            desc = "Stops syncing with player",
-            color = Color3.fromRGB(255, 150, 100),
-            action = function()
-                fireCommand("unsync", {"unsync"})
-            end
-        },
-        {
-            name = "Clear Hats",
-            cmd = "clearhats",
-            desc = "Removes all hats from your character",
-            color = Color3.fromRGB(200, 100, 200),
-            action = function()
-                fireCommand("clearhats", {"clearhats"})
-            end
-        }
-    }
-    
-    -- ==================== GEAR COMMANDS ====================
-    local gearCommands = {
-        {
-            name = "Korblox",
-            cmd = "korblox",
-            desc = "Gives you Korblox item",
-            color = Color3.fromRGB(150, 100, 255),
-            action = function()
-                fireCommand("korblox", {"korblox"})
-            end
-        },
-        {
-            name = "Headless",
-            cmd = "headless",
-            desc = "Gives you Headless item",
-            color = Color3.fromRGB(50, 50, 50),
-            action = function()
-                fireCommand("headless", {"headless"})
-            end
-        }
-    }
-    
-    -- ==================== FX COMMANDS (WITH COLOR) ====================
-    local fxCommands = {
-        {
-            name = "Fire",
-            cmd = "fire",
-            desc = "Fire effect (normal/dark)",
-            color = Color3.fromRGB(255, 120, 30)
-        },
-        {
-            name = "Light",
-            cmd = "light",
-            desc = "Light effect (normal/dark)",
-            color = Color3.fromRGB(255, 255, 100)
-        },
-        {
-            name = "Highlight",
-            cmd = "highlight",
-            desc = "Highlight effect (normal/dark)",
-            color = Color3.fromRGB(100, 255, 255)
-        },
-        {
-            name = "Sparkle",
-            cmd = "sparkle",
-            desc = "Sparkle effect (normal/dark)",
-            color = Color3.fromRGB(255, 200, 255)
-        }
-    }
-    
-    -- ==================== SIZE COMMAND ====================
-    local sizeCommand = {
-        name = "Change Size",
-        cmd = "size",
-        desc = "Adjust your character size (0.5 - 1.0)",
-        color = Color3.fromRGB(100, 200, 100)
-    }
-    
-    -- ==================== RENDER: BASIC COMMANDS ====================
-    local layoutOrder = 1
-    
-    -- Section: Basic
-    local basicHeader = Instance.new("Frame", appContent)
-    basicHeader.Size = UDim2.new(1, 0, 0, 24)
-    basicHeader.BackgroundTransparency = 1
-    basicHeader.LayoutOrder = layoutOrder
-    layoutOrder = layoutOrder + 1
-    
-    local basicAccent = Instance.new("Frame", basicHeader)
-    basicAccent.Size = UDim2.new(0, 3, 0, 16)
-    basicAccent.Position = UDim2.new(0, 0, 0.5, -8)
-    basicAccent.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
-    corner(basicAccent, 2)
-    
-    local basicTitle = Instance.new("TextLabel", basicHeader)
-    basicTitle.Size = UDim2.new(1, -10, 1, 0)
-    basicTitle.Position = UDim2.new(0, 8, 0, 0)
-    basicTitle.BackgroundTransparency = 1
-    basicTitle.Text = "Basic Commands"
-    basicTitle.TextColor3 = T.Text
-    basicTitle.Font = Enum.Font.GothamBlack
-    basicTitle.TextSize = 12
-    basicTitle.TextXAlignment = Enum.TextXAlignment.Left
-    
-    for _, cmd in ipairs(basicCommands) do
-        local card = createCommandCard(appContent, layoutOrder, cmd)
-        layoutOrder = layoutOrder + 1
-    end
-    
-    -- ==================== SIZE COMMAND ====================
-    local sizeCard = Instance.new("Frame", appContent)
-    sizeCard.Size = UDim2.new(1, 0, 0, 110)
-    sizeCard.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    sizeCard.LayoutOrder = layoutOrder
-    corner(sizeCard, 14)
-    stroke(sizeCard, Color3.fromRGB(225, 225, 230), 1, 0.3)
-    layoutOrder = layoutOrder + 1
-    
-    local sizeAccent = Instance.new("Frame", sizeCard)
-    sizeAccent.Size = UDim2.new(0, 3, 1, -16)
-    sizeAccent.Position = UDim2.new(0, 8, 0, 8)
-    sizeAccent.BackgroundColor3 = sizeCommand.color
-    corner(sizeAccent, 2)
-    
-    local sizeTitle = Instance.new("TextLabel", sizeCard)
-    sizeTitle.Size = UDim2.new(1, -120, 0, 22)
-    sizeTitle.Position = UDim2.new(0, 14, 0, 10)
-    sizeTitle.BackgroundTransparency = 1
-    sizeTitle.Text = sizeCommand.name
-    sizeTitle.TextColor3 = T.Text
-    sizeTitle.Font = Enum.Font.GothamBlack
-    sizeTitle.TextSize = 13
-    sizeTitle.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local sizeDesc = Instance.new("TextLabel", sizeCard)
-    sizeDesc.Size = UDim2.new(1, -120, 0, 14)
-    sizeDesc.Position = UDim2.new(0, 14, 0, 32)
-    sizeDesc.BackgroundTransparency = 1
-    sizeDesc.Text = sizeCommand.desc
-    sizeDesc.TextColor3 = T.Text2
-    sizeDesc.Font = Enum.Font.Gotham
-    sizeDesc.TextSize = 9
-    sizeDesc.TextXAlignment = Enum.TextXAlignment.Left
-    
-    -- Slider
-    local sliderBar = Instance.new("TextButton", sizeCard)
-    sliderBar.Size = UDim2.new(1, -28, 0, 28)
-    sliderBar.Position = UDim2.new(0, 14, 0, 52)
-    sliderBar.BackgroundColor3 = Color3.fromRGB(240, 240, 245)
-    sliderBar.Text = ""
-    corner(sliderBar, 14)
-    
-    local fill = Instance.new("Frame", sliderBar)
-    fill.Size = UDim2.new(1, 0, 1, 0)
-    fill.BackgroundColor3 = sizeCommand.color
-    corner(fill, 14)
-    
-    local sizeVal = Instance.new("TextLabel", sliderBar)
-    sizeVal.Size = UDim2.new(1, 0, 1, 0)
-    sizeVal.BackgroundTransparency = 1
-    sizeVal.Text = "Size: 1.0"
-    sizeVal.TextColor3 = Color3.new(1, 1, 1)
-    sizeVal.Font = Enum.Font.GothamBold
-    sizeVal.TextSize = 11
-    sizeVal.ZIndex = 2
-    
-    local curSize = 1.0
-    
-    local function setSizeVal(val)
-        curSize = math.clamp(val, 0.5, 1.0)
-        fill.Size = UDim2.new((curSize - 0.5) * 2, 0, 1, 0)
-        sizeVal.Text = "Size: " .. string.format("%.2f", curSize)
-    end
-    
-    sliderBar.MouseButton1Down:Connect(function()
-        local con
-        con = RunService.RenderStepped:Connect(function()
-            if not UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-                con:Disconnect()
-                return
-            end
-            local mousePos = UserInputService:GetMouseLocation()
-            local absX = sliderBar.AbsolutePosition.X
-            local absSizeX = sliderBar.AbsoluteSize.X
-            if absSizeX <= 0 then absSizeX = 1 end
-            local relX = (mousePos.X - absX) / absSizeX
-            setSizeVal(0.5 + relX * 0.5)
-        end)
-    end)
-    
-    local applyBtn = Instance.new("TextButton", sizeCard)
-    applyBtn.Size = UDim2.new(0, 60, 0, 22)
-    applyBtn.Position = UDim2.new(1, -74, 0, 52)
-    applyBtn.BackgroundColor3 = sizeCommand.color
-    applyBtn.Text = "Apply"
-    applyBtn.TextColor3 = T.OnAccent
-    applyBtn.Font = Enum.Font.GothamBold
-    applyBtn.TextSize = 10
-    applyBtn.AutoButtonColor = false
-    corner(applyBtn, 6)
-    pressFX(applyBtn)
-    applyBtn.MouseButton1Click:Connect(function()
-        setSize(curSize)
-        showDynamicNotification("Size: " .. string.format("%.2f", curSize), T.Green)
-    end)
-    
-    -- Preset buttons
-    local presets = {0.5, 0.7, 0.8, 0.9, 1.0}
-    for i, p in ipairs(presets) do
-        local pBtn = Instance.new("TextButton", sizeCard)
-        pBtn.Size = UDim2.new(0, 40, 0, 18)
-        pBtn.Position = UDim2.new(0, 14 + (i-1) * 44, 0, 84)
-        pBtn.BackgroundColor3 = Color3.fromRGB(245, 245, 248)
-        pBtn.Text = string.format("%.1f", p)
-        pBtn.TextColor3 = T.Text
-        pBtn.Font = Enum.Font.GothamBold
-        pBtn.TextSize = 9
-        pBtn.AutoButtonColor = false
-        corner(pBtn, 5)
-        stroke(pBtn, T.Border, 1, 0.3)
-        pressFX(pBtn)
-        pBtn.MouseButton1Click:Connect(function()
-            setSizeVal(p)
-            setSize(p)
-            showDynamicNotification("Size: " .. string.format("%.1f", p), T.Green)
-        end)
-    end
-    
-    -- ==================== SECTION: SYNC ====================
-    local syncHeader = createSectionHeader(appContent, layoutOrder, "Sync Commands", Color3.fromRGB(100, 200, 255))
-    layoutOrder = layoutOrder + 1
-    
-    for _, cmd in ipairs(syncCommands) do
-        if cmd.hasInput then
-            -- Card dengan input
-            local card = Instance.new("Frame", appContent)
-            card.Size = UDim2.new(1, 0, 0, 90)
-            card.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            card.LayoutOrder = layoutOrder
-            corner(card, 14)
-            stroke(card, Color3.fromRGB(225, 225, 230), 1, 0.3)
-            layoutOrder = layoutOrder + 1
+    for i, cmd in ipairs(commands) do
+        local card = Instance.new("Frame", appContent)
+        card.Size = UDim2.new(1, 0, 0, cmd.hasSlider and 140 or 80)
+        card.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        card.LayoutOrder = i
+        corner(card, 14)
+        stroke(card, Color3.fromRGB(225, 225, 230), 1, 0.3)
+        
+        -- Shadow
+        local cardShadow = Instance.new("Frame", card)
+        cardShadow.Size = UDim2.new(1, 6, 1, 6)
+        cardShadow.Position = UDim2.new(0.5, 0, 0.5, 0)
+        cardShadow.AnchorPoint = Vector2.new(0.5, 0.5)
+        cardShadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        cardShadow.BackgroundTransparency = 0.94
+        cardShadow.ZIndex = -1
+        corner(cardShadow, 16)
+        
+        -- Accent color bar
+        local accentBar = Instance.new("Frame", card)
+        accentBar.Size = UDim2.new(0, 3, 1, -16)
+        accentBar.Position = UDim2.new(0, 8, 0, 8)
+        accentBar.BackgroundColor3 = cmd.color
+        corner(accentBar, 2)
+        
+        -- Icon
+        local iconFrame = Instance.new("Frame", card)
+        iconFrame.Size = UDim2.new(0, 44, 0, 44)
+        iconFrame.Position = UDim2.new(0, 14, 0.5, -22)
+        iconFrame.BackgroundTransparency = 1
+        
+        -- Build icon using iconBuilders
+        local iconBuilder = iconBuilders[cmd.icon]
+        if iconBuilder then
+            iconBuilder(iconFrame, cmd.color)
+        end
+        
+        -- Command name
+        local nameLbl = Instance.new("TextLabel", card)
+        nameLbl.Size = UDim2.new(1, -170, 0, 22)
+        nameLbl.Position = UDim2.new(0, 66, 0, 12)
+        nameLbl.BackgroundTransparency = 1
+        nameLbl.Text = cmd.name
+        nameLbl.TextColor3 = T.Text
+        nameLbl.Font = Enum.Font.GothamBlack
+        nameLbl.TextSize = 14
+        nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+        
+        -- Command description
+        local descLbl = Instance.new("TextLabel", card)
+        descLbl.Size = UDim2.new(1, -170, 0, 16)
+        descLbl.Position = UDim2.new(0, 66, 0, 34)
+        descLbl.BackgroundTransparency = 1
+        descLbl.Text = cmd.desc
+        descLbl.TextColor3 = T.Text2
+        descLbl.Font = Enum.Font.Gotham
+        descLbl.TextSize = 9
+        descLbl.TextXAlignment = Enum.TextXAlignment.Left
+        
+        -- Command text badge
+        local cmdBadge = Instance.new("Frame", card)
+        cmdBadge.Size = UDim2.new(0, 60, 0, 18)
+        cmdBadge.Position = UDim2.new(0, 66, 0, 52)
+        cmdBadge.BackgroundColor3 = Color3.fromRGB(240, 240, 245)
+        corner(cmdBadge, 9)
+        
+        local cmdText = Instance.new("TextLabel", cmdBadge)
+        cmdText.Size = UDim2.new(1, 0, 1, 0)
+        cmdText.BackgroundTransparency = 1
+        cmdText.Text = "/" .. cmd.cmd
+        cmdText.TextColor3 = cmd.color
+        cmdText.Font = Enum.Font.Code
+        cmdText.TextSize = 10
+        
+        if cmd.hasSlider then
+            -- Size Slider
+            local sliderBar = Instance.new("TextButton", card)
+            sliderBar.Size = UDim2.new(1, -170, 0, 28)
+            sliderBar.Position = UDim2.new(0, 66, 0, 100)
+            sliderBar.BackgroundColor3 = Color3.fromRGB(240, 240, 245)
+            sliderBar.Text = ""
+            corner(sliderBar, 14)
             
-            local accent = Instance.new("Frame", card)
-            accent.Size = UDim2.new(0, 3, 1, -16)
-            accent.Position = UDim2.new(0, 8, 0, 8)
-            accent.BackgroundColor3 = cmd.color
-            corner(accent, 2)
+            local fill = Instance.new("Frame", sliderBar)
+            fill.Size = UDim2.new(1, 0, 1, 0)
+            fill.BackgroundColor3 = cmd.color
+            corner(fill, 14)
             
-            local nameLbl = Instance.new("TextLabel", card)
-            nameLbl.Size = UDim2.new(1, -24, 0, 20)
-            nameLbl.Position = UDim2.new(0, 14, 0, 8)
-            nameLbl.BackgroundTransparency = 1
-            nameLbl.Text = cmd.name
-            nameLbl.TextColor3 = T.Text
-            nameLbl.Font = Enum.Font.GothamBlack
-            nameLbl.TextSize = 13
-            nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+            local sizeVal = Instance.new("TextLabel", sliderBar)
+            sizeVal.Size = UDim2.new(1, 0, 1, 0)
+            sizeVal.BackgroundTransparency = 1
+            sizeVal.Text = "Size: 1.0"
+            sizeVal.TextColor3 = Color3.new(1, 1, 1)
+            sizeVal.Font = Enum.Font.GothamBold
+            sizeVal.TextSize = 11
+            sizeVal.ZIndex = 2
             
-            local input = Instance.new("TextBox", card)
-            input.Size = UDim2.new(1, -28, 0, 28)
-            input.Position = UDim2.new(0, 14, 0, 32)
-            input.PlaceholderText = cmd.inputPlaceholder or "Enter value..."
-            input.Text = ""
-            input.BackgroundColor3 = Color3.fromRGB(245, 245, 248)
-            input.TextColor3 = T.Text
-            input.Font = Enum.Font.Gotham
-            input.TextSize = 11
-            corner(input, 6)
-            stroke(input, Color3.fromRGB(220, 220, 225), 1, 0.3)
+            local curSize = 1.0
             
+            local function setSizeVal(val)
+                curSize = math.clamp(val, 0.5, 1.0)
+                fill.Size = UDim2.new((curSize - 0.5) * 2, 0, 1, 0)
+                sizeVal.Text = "Size: " .. string.format("%.2f", curSize)
+            end
+            
+            sliderBar.MouseButton1Down:Connect(function()
+                local con
+                con = RunService.RenderStepped:Connect(function()
+                    if not UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+                        con:Disconnect()
+                        return
+                    end
+                    local mousePos = UserInputService:GetMouseLocation()
+                    local absX = sliderBar.AbsolutePosition.X
+                    local absSizeX = sliderBar.AbsoluteSize.X
+                    if absSizeX <= 0 then absSizeX = 1 end
+                    local relX = (mousePos.X - absX) / absSizeX
+                    setSizeVal(0.5 + relX * 0.5)
+                end)
+            end)
+            
+            -- Apply button
+            local applyBtn = Instance.new("TextButton", card)
+            applyBtn.Size = UDim2.new(0, 70, 0, 22)
+            applyBtn.Position = UDim2.new(1, -80, 0, 100)
+            applyBtn.BackgroundColor3 = cmd.color
+            applyBtn.Text = "Apply"
+            applyBtn.TextColor3 = T.OnAccent
+            applyBtn.Font = Enum.Font.GothamBold
+            applyBtn.TextSize = 10
+            applyBtn.AutoButtonColor = false
+            corner(applyBtn, 6)
+            pressFX(applyBtn)
+            applyBtn.MouseButton1Click:Connect(function()
+                setSize(curSize)
+                showDynamicNotification("Size set to " .. string.format("%.2f", curSize), T.Green)
+            end)
+        else
+            -- Execute button
             local execBtn = Instance.new("TextButton", card)
-            execBtn.Size = UDim2.new(0, 70, 0, 24)
-            execBtn.Position = UDim2.new(1, -84, 0, 58)
+            execBtn.Size = UDim2.new(0, 70, 0, 28)
+            execBtn.Position = UDim2.new(1, -80, 0.5, -14)
             execBtn.BackgroundColor3 = cmd.color
             execBtn.Text = "Execute"
             execBtn.TextColor3 = T.OnAccent
             execBtn.Font = Enum.Font.GothamBold
             execBtn.TextSize = 10
             execBtn.AutoButtonColor = false
-            corner(execBtn, 6)
+            corner(execBtn, 8)
             pressFX(execBtn)
             execBtn.MouseButton1Click:Connect(function()
-                local val = input.Text
-                if val == "" then
-                    showDynamicNotification("Enter a value!", T.Red)
-                    return
+                execBtn.Text = "..."
+                execBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+                
+                if cmd.action then
+                    cmd.action()
                 end
-                cmd.action(val)
-                showDynamicNotification(cmd.name .. " executed!", T.Green)
+                
+                execBtn.Text = "Done!"
+                execBtn.BackgroundColor3 = T.Green
+                task.wait(1.5)
+                execBtn.Text = "Execute"
+                execBtn.BackgroundColor3 = cmd.color
             end)
-        else
-            local card = createCommandCard(appContent, layoutOrder, cmd)
-            layoutOrder = layoutOrder + 1
         end
     end
     
-    -- ==================== SECTION: GEAR ====================
-    local gearHeader = createSectionHeader(appContent, layoutOrder, "Gear Commands", Color3.fromRGB(150, 100, 255))
-    layoutOrder = layoutOrder + 1
+    -- ==================== QUICK COMMANDS ROW ====================
+    local quickFrame = Instance.new("Frame", appContent)
+    quickFrame.Size = UDim2.new(1, 0, 0, 50)
+    quickFrame.BackgroundColor3 = Color3.fromRGB(248, 248, 250)
+    quickFrame.LayoutOrder = 99
+    corner(quickFrame, 12)
+    stroke(quickFrame, Color3.fromRGB(220, 220, 225), 1, 0.3)
     
-    for _, cmd in ipairs(gearCommands) do
-        local card = createCommandCard(appContent, layoutOrder, cmd)
-        layoutOrder = layoutOrder + 1
-    end
+    local quickTitle = Instance.new("TextLabel", quickFrame)
+    quickTitle.Size = UDim2.new(1, -20, 0, 18)
+    quickTitle.Position = UDim2.new(0, 10, 0, 6)
+    quickTitle.BackgroundTransparency = 1
+    quickTitle.Text = "Quick Actions"
+    quickTitle.TextColor3 = T.Text2
+    quickTitle.Font = Enum.Font.GothamBold
+    quickTitle.TextSize = 10
+    quickTitle.TextXAlignment = Enum.TextXAlignment.Left
     
-    -- ==================== SECTION: FX (WITH COLOR PICKER) ====================
-    local fxHeader = createSectionHeader(appContent, layoutOrder, "Effect Commands", Color3.fromRGB(255, 120, 30))
-    layoutOrder = layoutOrder + 1
-    
-    -- Color picker row
-    local colorCard = Instance.new("Frame", appContent)
-    colorCard.Size = UDim2.new(1, 0, 0, 80)
-    colorCard.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    colorCard.LayoutOrder = layoutOrder
-    corner(colorCard, 14)
-    stroke(colorCard, Color3.fromRGB(225, 225, 230), 1, 0.3)
-    layoutOrder = layoutOrder + 1
-    
-    local colorTitle = Instance.new("TextLabel", colorCard)
-    colorTitle.Size = UDim2.new(1, -24, 0, 20)
-    colorTitle.Position = UDim2.new(0, 12, 0, 8)
-    colorTitle.BackgroundTransparency = 1
-    colorTitle.Text = "Selected Color: " .. selectedColor
-    colorTitle.TextColor3 = T.Text
-    colorTitle.Font = Enum.Font.GothamBlack
-    colorTitle.TextSize = 12
-    colorTitle.TextXAlignment = Enum.TextXAlignment.Left
-    
-    -- Color grid (2 rows)
-    local colorGrid = Instance.new("Frame", colorCard)
-    colorGrid.Size = UDim2.new(1, -24, 0, 44)
-    colorGrid.Position = UDim2.new(0, 12, 0, 30)
-    colorGrid.BackgroundTransparency = 1
-    
-    local gridLayout = Instance.new("UIGridLayout", colorGrid)
-    gridLayout.CellSize = UDim2.new(0, 60, 0, 18)
-    gridLayout.CellPadding = UDim2.new(0, 3, 0, 2)
-    gridLayout.FillDirection = Enum.FillDirection.Horizontal
-    gridLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
-    gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    
-    -- Hanya tampilkan beberapa warna populer di grid
-    local popularColors = {
-        "red", "dark red", "pink", "magenta", "orange", "neon orange",
-        "yellow", "lime", "green", "dark green", "neon green",
-        "teal", "cyan", "blue", "neon blue", "sky blue",
-        "dark blue", "purple", "violet", "white", "black", "gold"
+    local quickBtns = {
+        {text = "Re", color = Color3.fromRGB(255, 80, 80), action = function() resetCharacter() showDynamicNotification("Re!", T.Green) end},
+        {text = "Rejoin", color = Color3.fromRGB(80, 150, 255), action = function() pcall(function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId) end) end},
+        {text = "Sit", color = Color3.fromRGB(255, 180, 50), action = function() local char = LocalPlayer.Character if char and char:FindFirstChildOfClass("Humanoid") then char.Humanoid.Sit = true end end},
+        {text = "Size 1", color = Color3.fromRGB(100, 200, 100), action = function() setSize(1.0) showDynamicNotification("Size: 1.0", T.Green) end}
     }
     
-    for _, colName in ipairs(popularColors) do
-        local colBtn = Instance.new("TextButton", colorGrid)
-        colBtn.Size = UDim2.new(0, 60, 0, 18)
-        colBtn.Text = colName
-        colBtn.TextColor3 = Color3.fromRGB(100, 100, 100)
-        colBtn.Font = Enum.Font.GothamBold
-        colBtn.TextSize = 7
-        colBtn.AutoButtonColor = false
-        colBtn.BackgroundColor3 = Color3.fromRGB(245, 245, 248)
-        
-        if colName == selectedColor then
-            colBtn.BackgroundColor3 = Color3.fromRGB(80, 140, 255)
-            colBtn.TextColor3 = Color3.new(1, 1, 1)
-        end
-        
-        corner(colBtn, 5)
-        stroke(colBtn, Color3.fromRGB(220, 220, 225), 1, 0.3)
-        pressFX(colBtn)
-        
-        colBtn.MouseButton1Click:Connect(function()
-            selectedColor = colName
-            colorTitle.Text = "Selected Color: " .. selectedColor
-            -- Update semua color button
-            for _, b in ipairs(colorGrid:GetChildren()) do
-                if b:IsA("TextButton") then
-                    b.BackgroundColor3 = Color3.fromRGB(245, 245, 248)
-                    b.TextColor3 = Color3.fromRGB(100, 100, 100)
-                end
-            end
-            colBtn.BackgroundColor3 = Color3.fromRGB(80, 140, 255)
-            colBtn.TextColor3 = Color3.new(1, 1, 1)
+    for i, btn in ipairs(quickBtns) do
+        local qBtn = Instance.new("TextButton", quickFrame)
+        qBtn.Size = UDim2.new(0, 60, 0, 24)
+        qBtn.Position = UDim2.new(0, 8 + (i-1) * 66, 0, 24)
+        qBtn.BackgroundColor3 = btn.color
+        qBtn.Text = btn.text
+        qBtn.TextColor3 = Color3.new(1, 1, 1)
+        qBtn.Font = Enum.Font.GothamBold
+        qBtn.TextSize = 9
+        qBtn.AutoButtonColor = false
+        corner(qBtn, 6)
+        pressFX(qBtn)
+        qBtn.MouseButton1Click:Connect(function()
+            btn.action()
         end)
     end
-    
-    -- FX Command cards
-    for _, cmd in ipairs(fxCommands) do
-        local card = Instance.new("Frame", appContent)
-        card.Size = UDim2.new(1, 0, 0, 100)
-        card.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        card.LayoutOrder = layoutOrder
-        corner(card, 14)
-        stroke(card, Color3.fromRGB(225, 225, 230), 1, 0.3)
-        layoutOrder = layoutOrder + 1
-        
-        local accent = Instance.new("Frame", card)
-        accent.Size = UDim2.new(0, 3, 1, -16)
-        accent.Position = UDim2.new(0, 8, 0, 8)
-        accent.BackgroundColor3 = cmd.color
-        corner(accent, 2)
-        
-        local nameLbl = Instance.new("TextLabel", card)
-        nameLbl.Size = UDim2.new(1, -24, 0, 20)
-        nameLbl.Position = UDim2.new(0, 14, 0, 8)
-        nameLbl.BackgroundTransparency = 1
-        nameLbl.Text = cmd.name .. " Effect"
-        nameLbl.TextColor3 = T.Text
-        nameLbl.Font = Enum.Font.GothamBlack
-        nameLbl.TextSize = 13
-        nameLbl.TextXAlignment = Enum.TextXAlignment.Left
-        
-        local descLbl = Instance.new("TextLabel", card)
-        descLbl.Size = UDim2.new(1, -24, 0, 14)
-        descLbl.Position = UDim2.new(0, 14, 0, 28)
-        descLbl.BackgroundTransparency = 1
-        descLbl.Text = cmd.desc .. " | Color: " .. selectedColor
-        descLbl.TextColor3 = T.Text2
-        descLbl.Font = Enum.Font.Gotham
-        descLbl.TextSize = 9
-        descLbl.TextXAlignment = Enum.TextXAlignment.Left
-        
-        -- Normal button
-        local normalBtn = Instance.new("TextButton", card)
-        normalBtn.Size = UDim2.new(0, 80, 0, 26)
-        normalBtn.Position = UDim2.new(0, 14, 0, 50)
-        normalBtn.BackgroundColor3 = cmd.color
-        normalBtn.Text = cmd.name
-        normalBtn.TextColor3 = T.OnAccent
-        normalBtn.Font = Enum.Font.GothamBold
-        normalBtn.TextSize = 10
-        normalBtn.AutoButtonColor = false
-        corner(normalBtn, 6)
-        pressFX(normalBtn)
-        normalBtn.MouseButton1Click:Connect(function()
-            fireCommand(cmd.cmd, {cmd.cmd, selectedColor})
-            showDynamicNotification(cmd.name .. " (" .. selectedColor .. ") applied!", T.Green)
-        end)
-        
-        -- Dark button
-        local darkBtn = Instance.new("TextButton", card)
-        darkBtn.Size = UDim2.new(0, 80, 0, 26)
-        darkBtn.Position = UDim2.new(0, 100, 0, 50)
-        darkBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-        darkBtn.Text = cmd.name .. " Dark"
-        darkBtn.TextColor3 = T.OnAccent
-        darkBtn.Font = Enum.Font.GothamBold
-        darkBtn.TextSize = 10
-        darkBtn.AutoButtonColor = false
-        corner(darkBtn, 6)
-        pressFX(darkBtn)
-        darkBtn.MouseButton1Click:Connect(function()
-            fireCommand(cmd.cmd, {cmd.cmd, "dark", selectedColor})
-            showDynamicNotification(cmd.name .. " Dark (" .. selectedColor .. ") applied!", T.Green)
-        end)
-        
-        -- Quick color label
-        local quickLabel = Instance.new("TextLabel", card)
-        quickLabel.Size = UDim2.new(1, -200, 0, 14)
-        quickLabel.Position = UDim2.new(0, 190, 0, 56)
-        quickLabel.BackgroundTransparency = 1
-        quickLabel.Text = "Color: " .. selectedColor
-        quickLabel.TextColor3 = T.Text2
-        quickLabel.Font = Enum.Font.Gotham
-        quickLabel.TextSize = 8
-        quickLabel.TextXAlignment = Enum.TextXAlignment.Left
-    end
-end
-
--- ==================== HELPER FUNCTIONS ====================
-function createSectionHeader(parent, order, title, color)
-    local header = Instance.new("Frame", parent)
-    header.Size = UDim2.new(1, 0, 0, 24)
-    header.BackgroundTransparency = 1
-    header.LayoutOrder = order
-    
-    local accent = Instance.new("Frame", header)
-    accent.Size = UDim2.new(0, 3, 0, 16)
-    accent.Position = UDim2.new(0, 0, 0.5, -8)
-    accent.BackgroundColor3 = color
-    corner(accent, 2)
-    
-    local titleLbl = Instance.new("TextLabel", header)
-    titleLbl.Size = UDim2.new(1, -10, 1, 0)
-    titleLbl.Position = UDim2.new(0, 8, 0, 0)
-    titleLbl.BackgroundTransparency = 1
-    titleLbl.Text = title
-    titleLbl.TextColor3 = T.Text
-    titleLbl.Font = Enum.Font.GothamBlack
-    titleLbl.TextSize = 12
-    titleLbl.TextXAlignment = Enum.TextXAlignment.Left
-    
-    return header
-end
-
-function createCommandCard(parent, order, cmd)
-    local card = Instance.new("Frame", parent)
-    card.Size = UDim2.new(1, 0, 0, 72)
-    card.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    card.LayoutOrder = order
-    corner(card, 14)
-    stroke(card, Color3.fromRGB(225, 225, 230), 1, 0.3)
-    
-    local accent = Instance.new("Frame", card)
-    accent.Size = UDim2.new(0, 3, 1, -16)
-    accent.Position = UDim2.new(0, 8, 0, 8)
-    accent.BackgroundColor3 = cmd.color
-    corner(accent, 2)
-    
-    local nameLbl = Instance.new("TextLabel", card)
-    nameLbl.Size = UDim2.new(1, -100, 0, 22)
-    nameLbl.Position = UDim2.new(0, 14, 0, 10)
-    nameLbl.BackgroundTransparency = 1
-    nameLbl.Text = cmd.name
-    nameLbl.TextColor3 = T.Text
-    nameLbl.Font = Enum.Font.GothamBlack
-    nameLbl.TextSize = 13
-    nameLbl.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local descLbl = Instance.new("TextLabel", card)
-    descLbl.Size = UDim2.new(1, -100, 0, 16)
-    descLbl.Position = UDim2.new(0, 14, 0, 32)
-    descLbl.BackgroundTransparency = 1
-    descLbl.Text = cmd.desc
-    descLbl.TextColor3 = T.Text2
-    descLbl.Font = Enum.Font.Gotham
-    descLbl.TextSize = 9
-    descLbl.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local cmdBadge = Instance.new("Frame", card)
-    cmdBadge.Size = UDim2.new(0, 55, 0, 16)
-    cmdBadge.Position = UDim2.new(0, 14, 0, 50)
-    cmdBadge.BackgroundColor3 = Color3.fromRGB(240, 240, 245)
-    corner(cmdBadge, 8)
-    
-    local cmdText = Instance.new("TextLabel", cmdBadge)
-    cmdText.Size = UDim2.new(1, 0, 1, 0)
-    cmdText.BackgroundTransparency = 1
-    cmdText.Text = "/" .. cmd.cmd
-    cmdText.TextColor3 = cmd.color
-    cmdText.Font = Enum.Font.Code
-    cmdText.TextSize = 9
-    
-    local execBtn = Instance.new("TextButton", card)
-    execBtn.Size = UDim2.new(0, 65, 0, 26)
-    execBtn.Position = UDim2.new(1, -75, 0.5, -13)
-    execBtn.BackgroundColor3 = cmd.color
-    execBtn.Text = "Execute"
-    execBtn.TextColor3 = T.OnAccent
-    execBtn.Font = Enum.Font.GothamBold
-    execBtn.TextSize = 10
-    execBtn.AutoButtonColor = false
-    corner(execBtn, 7)
-    pressFX(execBtn)
-    execBtn.MouseButton1Click:Connect(function()
-        if cmd.action then
-            cmd.action()
-            showDynamicNotification(cmd.name .. " executed!", T.Green)
-        end
-    end)
-    
-    return card
 end
 
 -- SETTINGS (FIXED - NO ERRORS)
