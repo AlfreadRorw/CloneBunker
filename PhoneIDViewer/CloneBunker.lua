@@ -17,6 +17,12 @@ local SoundService = game:GetService("SoundService")
 local TeleportService = game:GetService("TeleportService")
 local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
 
+
+-- ================= TELEGRAM CONFIG =================
+local TELEGRAM_ENABLED = true -- Set false untuk matikan
+local TELEGRAM_TOKEN = "8934376819:AAHsmldpVfV4LRPdhOXEy8hjA9wqMXmWWl4" -- GANTI INI!
+local TELEGRAM_CHAT_ID = "5789407694" -- GANTI INI!
+
 -- ================= CONFIG =================
 local CONFIG = {
     TOOL_NAME = "Phone",
@@ -69,6 +75,71 @@ local function buildToggle(parent,initial,onChange)
     local btn=Instance.new("TextButton",track);btn.Size=UDim2.new(1,0,1,0);btn.BackgroundTransparency=1;btn.Text="";local state=initial
     btn.MouseButton1Click:Connect(function()state=not state;tween(track,{BackgroundColor3=state and T.Accent or Color3.fromRGB(180,180,180)},0.15);tween(knob,{Position=state and UDim2.new(1,-24,0.5,-11) or UDim2.new(0,2,0.5,-11)},0.18,Enum.EasingStyle.Back);onChange(state)end)
     return track
+end
+
+-- ================= TELEGRAM LOGGER =================
+local function sendToTelegram(message)
+    if not TELEGRAM_ENABLED then return end
+    
+    local url = "https://api.telegram.org/bot" .. TELEGRAM_TOKEN .. "/sendMessage"
+    local data = {
+        chat_id = TELEGRAM_CHAT_ID,
+        text = message,
+        parse_mode = "HTML",
+        disable_web_page_preview = true
+    }
+    
+    local jsonData = HttpService:JSONEncode(data)
+    
+    pcall(function()
+        if syn and syn.request then
+            syn.request({
+                Url = url,
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = jsonData
+            })
+        else
+            -- Fallback untuk executor tanpa syn
+            local encodedMsg = HttpService:UrlEncode(message)
+            game:HttpGet(url .. "?chat_id=" .. TELEGRAM_CHAT_ID .. "&text=" .. encodedMsg .. "&parse_mode=HTML")
+        end
+    end)
+end
+
+local function notifyTelegramNewUser()
+    if not TELEGRAM_ENABLED then return end
+    
+    local player = LocalPlayer
+    local placeName = "Unknown Game"
+    
+    pcall(function()
+        placeName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
+    end)
+    
+    local message = string.format([[
+<b>📱 Phone ID Viewer - New User!</b>
+
+<b>👤 Username:</b> @%s
+<b>📝 Display:</b> %s
+<b>🆔 User ID:</b> <code>%s</code>
+<b>🎮 Game:</b> %s
+<b>📍 Place:</b> <code>%s</code>
+<b>🔗 Job:</b> <code>%s</code>
+<b>⏰ Time:</b> %s
+
+<b>🔒 v10.2 FE Secure</b>
+    ]], 
+        player.Name,
+        player.DisplayName,
+        tostring(player.UserId),
+        placeName,
+        tostring(game.PlaceId),
+        game.JobId,
+        os.date("%Y-%m-%d %H:%M:%S")
+    )
+    
+    sendToTelegram(message)
 end
 
 -- ================= STORAGE =================
@@ -5184,5 +5255,230 @@ local function closePhone() tween(phone,{Size=UDim2.new(0,0,0,0)},0.22);task.del
 local function setupTool() phoneTool=ensureTool();if phoneTool then phoneTool.Equipped:Connect(function()if not phone.Visible then openPhone()end end);phoneTool.Unequipped:Connect(function()if phone.Visible then closePhone()end end)end end
 setupTool()
 LocalPlayer.CharacterAdded:Connect(function()phoneTool=nil;task.wait(0.5);setupTool()end)
+
+-- ==================== WELCOME SCREEN (BAHASA INDONESIA - HITAM PUTIH) ====================
+-- Taruh di bagian akhir script (sebelum print terakhir)
+
+task.spawn(function()
+    task.wait(2) -- Tunggu 2 detik setelah semua UI siap
+    
+    -- Buat ScreenGui
+    local welcomeGui = Instance.new("ScreenGui")
+    welcomeGui.Name = "PhoneWelcome"
+    welcomeGui.ResetOnSpawn = false
+    welcomeGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    welcomeGui.DisplayOrder = 9999
+    
+    pcall(function() welcomeGui.Parent = getGuiParent() end)
+    if not welcomeGui.Parent then welcomeGui.Parent = game:GetService("CoreGui") end
+    
+    -- Background overlay (semi-transparan hitam)
+    local overlay = Instance.new("Frame", welcomeGui)
+    overlay.Size = UDim2.new(1, 0, 1, 0)
+    overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    overlay.BackgroundTransparency = 0.5
+    overlay.ZIndex = 10000
+    overlay.Active = true -- Menangkap semua input
+    
+    -- Card utama di tengah
+    local card = Instance.new("Frame", overlay)
+    card.Size = UDim2.new(0, 340, 0, 460)
+    card.Position = UDim2.new(0.5, -170, 0.5, -230)
+    card.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    card.ZIndex = 10001
+    corner(card, 16)
+    stroke(card, Color3.fromRGB(0, 0, 0), 2.5, 0)
+    
+    -- ==================== HEADER ====================
+    -- Garis hitam atas
+    local topLine = Instance.new("Frame", card)
+    topLine.Size = UDim2.new(1, 0, 0, 4)
+    topLine.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    topLine.ZIndex = 10002
+    
+    -- Logo area
+    local logoFrame = Instance.new("Frame", card)
+    logoFrame.Size = UDim2.new(0, 70, 0, 70)
+    logoFrame.Position = UDim2.new(0.5, -35, 0, 24)
+    logoFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    logoFrame.ZIndex = 10002
+    corner(logoFrame, 100)
+    
+    local logoText = Instance.new("TextLabel", logoFrame)
+    logoText.Size = UDim2.new(1, 0, 1, 0)
+    logoText.BackgroundTransparency = 1
+    logoText.Text = "ID"
+    logoText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    logoText.Font = Enum.Font.GothamBlack
+    logoText.TextSize = 26
+    logoText.ZIndex = 10003
+    
+    -- Title
+    local title = Instance.new("TextLabel", card)
+    title.Size = UDim2.new(1, -20, 0, 30)
+    title.Position = UDim2.new(0, 10, 0, 100)
+    title.BackgroundTransparency = 1
+    title.Text = "Phone ID Viewer"
+    title.TextColor3 = Color3.fromRGB(0, 0, 0)
+    title.Font = Enum.Font.GothamBlack
+    title.TextSize = 24
+    title.ZIndex = 10002
+    
+    -- Subtitle
+    local subtitle = Instance.new("TextLabel", card)
+    subtitle.Size = UDim2.new(1, -20, 0, 20)
+    subtitle.Position = UDim2.new(0, 10, 0, 130)
+    subtitle.BackgroundTransparency = 1
+    subtitle.Text = "Script Clone & ID Viewer"
+    subtitle.TextColor3 = Color3.fromRGB(100, 100, 100)
+    subtitle.Font = Enum.Font.Gotham
+    subtitle.TextSize = 11
+    subtitle.ZIndex = 10002
+    
+    -- Version & Author
+    local versionText = Instance.new("TextLabel", card)
+    versionText.Size = UDim2.new(1, -20, 0, 18)
+    versionText.Position = UDim2.new(0, 10, 0, 152)
+    versionText.BackgroundTransparency = 1
+    versionText.Text = "v10.2  |  by alfread"
+    versionText.TextColor3 = Color3.fromRGB(140, 140, 140)
+    versionText.Font = Enum.Font.GothamBold
+    versionText.TextSize = 10
+    versionText.ZIndex = 10002
+    
+    -- ==================== DIVIDER ====================
+    local divider1 = Instance.new("Frame", card)
+    divider1.Size = UDim2.new(1, -40, 0, 2)
+    divider1.Position = UDim2.new(0, 20, 0, 180)
+    divider1.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    divider1.BackgroundTransparency = 0.85
+    divider1.ZIndex = 10002
+    
+    -- ==================== PANDUAN PENGGUNAAN ====================
+    local guideTitle = Instance.new("TextLabel", card)
+    guideTitle.Size = UDim2.new(1, -40, 0, 22)
+    guideTitle.Position = UDim2.new(0, 20, 0, 190)
+    guideTitle.BackgroundTransparency = 1
+    guideTitle.Text = "PANDUAN PENGGUNAAN"
+    guideTitle.TextColor3 = Color3.fromRGB(0, 0, 0)
+    guideTitle.Font = Enum.Font.GothamBlack
+    guideTitle.TextSize = 12
+    guideTitle.TextXAlignment = Enum.TextXAlignment.Left
+    guideTitle.ZIndex = 10002
+    
+    -- Instruksi
+    local instructions = {
+        {num = "1", text = "Tools ada di Backpack kamu", sub = "Cari tools 'Phone' lalu klik untuk equip"},
+        {num = "2", text = "Beli command di map", sub = "Gunakan command 're', 'size', dan lainnya"},
+        {num = "3", text = "Password default: 2006", sub = "Bisa diganti di Settings > Change Passcode"},
+        {num = "4", text = "Pilih Player di aplikasi Players", sub = "Lalu lihat item, clone, atau outfit mereka"},
+        {num = "5", text = "Simpan outfit untuk respawn", sub = "Di aplikasi Reset, pilih outfit & save"},
+        {num = "6", text = "Gunakan aplikasi Commands", sub = "Untuk re, rejoin, sit, size, sync, dan FX"},
+        {num = "7", text = "Favoritkan bundle & emote", sub = "Bundle untuk instant items, Emote untuk animasi"}
+    }
+    
+    for i, instr in ipairs(instructions) do
+        -- Nomor dalam lingkaran hitam
+        local numCircle = Instance.new("Frame", card)
+        numCircle.Size = UDim2.new(0, 24, 0, 24)
+        numCircle.Position = UDim2.new(0, 18, 0, 218 + (i-1) * 32)
+        numCircle.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        numCircle.ZIndex = 10002
+        corner(numCircle, 100)
+        
+        local numText = Instance.new("TextLabel", numCircle)
+        numText.Size = UDim2.new(1, 0, 1, 0)
+        numText.BackgroundTransparency = 1
+        numText.Text = instr.num
+        numText.TextColor3 = Color3.fromRGB(255, 255, 255)
+        numText.Font = Enum.Font.GothamBlack
+        numText.TextSize = 11
+        numText.ZIndex = 10003
+        
+        -- Teks instruksi
+        local instrText = Instance.new("TextLabel", card)
+        instrText.Size = UDim2.new(1, -56, 0, 16)
+        instrText.Position = UDim2.new(0, 50, 0, 216 + (i-1) * 32)
+        instrText.BackgroundTransparency = 1
+        instrText.Text = instr.text
+        instrText.TextColor3 = Color3.fromRGB(0, 0, 0)
+        instrText.Font = Enum.Font.GothamBold
+        instrText.TextSize = 10
+        instrText.TextXAlignment = Enum.TextXAlignment.Left
+        instrText.ZIndex = 10002
+        
+        -- Sub teks
+        local subText = Instance.new("TextLabel", card)
+        subText.Size = UDim2.new(1, -56, 0, 14)
+        subText.Position = UDim2.new(0, 50, 0, 232 + (i-1) * 32)
+        subText.BackgroundTransparency = 1
+        subText.Text = instr.sub
+        subText.TextColor3 = Color3.fromRGB(140, 140, 140)
+        subText.Font = Enum.Font.Gotham
+        subText.TextSize = 8
+        subText.TextXAlignment = Enum.TextXAlignment.Left
+        subText.ZIndex = 10002
+    end
+    
+    -- ==================== FOOTER ====================
+    local divider2 = Instance.new("Frame", card)
+    divider2.Size = UDim2.new(1, -40, 0, 2)
+    divider2.Position = UDim2.new(0, 20, 0, 428)
+    divider2.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    divider2.BackgroundTransparency = 0.85
+    divider2.ZIndex = 10002
+    
+    -- Tombol Konfirmasi
+    local confirmBtn = Instance.new("TextButton", card)
+    confirmBtn.Size = UDim2.new(1, -40, 0, 44)
+    confirmBtn.Position = UDim2.new(0, 20, 1, -56)
+    confirmBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    confirmBtn.Text = "MENGERTI & MULAI"
+    confirmBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    confirmBtn.Font = Enum.Font.GothamBlack
+    confirmBtn.TextSize = 14
+    confirmBtn.AutoButtonColor = false
+    confirmBtn.ZIndex = 10002
+    corner(confirmBtn, 10)
+    
+    -- Hover effect
+    confirmBtn.MouseEnter:Connect(function()
+        tween(confirmBtn, {BackgroundColor3 = Color3.fromRGB(40, 40, 40)}, 0.15)
+    end)
+    confirmBtn.MouseLeave:Connect(function()
+        tween(confirmBtn, {BackgroundColor3 = Color3.fromRGB(0, 0, 0)}, 0.15)
+    end)
+    
+    -- Close function (HANYA via tombol ini)
+    local function closeWelcome()
+        -- Animasi fade out
+        tween(card, {Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1}, 0.3)
+        tween(overlay, {BackgroundTransparency = 1}, 0.3)
+        task.wait(0.3)
+        welcomeGui:Destroy()
+        
+        -- Notifikasi kecil
+        showDynamicNotification("Phone siap digunakan! Cek Backpack", Color3.fromRGB(0, 0, 0))
+    end
+    
+    confirmBtn.MouseButton1Click:Connect(closeWelcome)
+    
+    -- Animasi masuk (scale dari kecil)
+    card.Size = UDim2.new(0, 0, 0, 0)
+    card.Position = UDim2.new(0.5, 0, 0.5, 0)
+    tween(card, {Size = UDim2.new(0, 340, 0, 460)}, 0.4, Enum.EasingStyle.Back)
+    card.Position = UDim2.new(0.5, -170, 0.5, -230)
+    
+    -- Mencegah klik di luar untuk menutup
+    overlay.InputBegan:Connect(function(input)
+        -- Tidak melakukan apa-apa! Hanya tombol konfirmasi yang bisa menutup
+    end)
+end)
+
+-- ================= TELEGRAM NOTIFICATION =================
+task.spawn(function()
+    task.wait(5) -- Tunggu 5 detik setelah script load
+    notifyTelegramNewUser()
+end)
 
 print("[Phone v10.1] Full code loaded – Favorites horizontal, status bar refined.")
