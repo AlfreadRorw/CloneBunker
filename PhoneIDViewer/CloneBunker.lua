@@ -207,6 +207,121 @@ local favAvatarItems = loadJSON(FAV_AVATAR_ITEMS_FILE) or {}
 if type(favAvatarItems) ~= "table" then favAvatarItems = {} end
 local function persistFavAvatarItems() saveJSON(FAV_AVATAR_ITEMS_FILE, favAvatarItems) end
 
+-- ================= SUPABASE CONFIG =================
+local SUPABASE_URL = "https://kqhxseyctpyvcqmaloxo.supabase.co/rest/v1/"
+local SUPABASE_KEY = "sb_publishable_nfXMZR_Qaq6TPJ-eowZlmQ_ww1bIHEo"
+
+-- ================= SUPABASE FUNCTIONS =================
+
+-- Baca semua online users
+local function supabaseGetOnlineUsers()
+    local users = {}
+    
+    pcall(function()
+        local url = SUPABASE_URL .. "online_users?select=*"
+        
+        if syn and syn.request then
+            local response = syn.request({
+                Url = url,
+                Method = "GET",
+                Headers = {
+                    ["apikey"] = SUPABASE_KEY,
+                    ["Authorization"] = "Bearer " .. SUPABASE_KEY
+                }
+            })
+            if response.Body then
+                users = HttpService:JSONDecode(response.Body)
+            end
+        else
+            local raw = game:HttpGet(url)
+            if raw then
+                users = HttpService:JSONDecode(raw)
+            end
+        end
+    end)
+    
+    return users
+end
+
+-- Insert atau update user
+local function supabaseUpsertUser(userData)
+    pcall(function()
+        local url = SUPABASE_URL .. "online_users"
+        
+        if syn and syn.request then
+            syn.request({
+                Url = url,
+                Method = "POST",
+                Headers = {
+                    ["apikey"] = SUPABASE_KEY,
+                    ["Authorization"] = "Bearer " .. SUPABASE_KEY,
+                    ["Content-Type"] = "application/json",
+                    ["Prefer"] = "resolution=merge-duplicates"
+                },
+                Body = HttpService:JSONEncode(userData)
+            })
+        end
+    end)
+end
+
+-- Hapus user yang offline (lebih dari 5 menit)
+local function supabaseCleanupOffline()
+    pcall(function()
+        local fiveMinAgo = os.time() - 300
+        local url = SUPABASE_URL .. "online_users?timestamp=lt." .. fiveMinAgo
+        
+        if syn and syn.request then
+            syn.request({
+                Url = url,
+                Method = "DELETE",
+                Headers = {
+                    ["apikey"] = SUPABASE_KEY,
+                    ["Authorization"] = "Bearer " .. SUPABASE_KEY
+                }
+            })
+        end
+    end)
+end
+
+-- ================= UPDATE STATUS =================
+local function updateMyOnlineStatus()
+    local myData = {
+        id = LocalPlayer.UserId,
+        username = LocalPlayer.Name,
+        display_name = LocalPlayer.DisplayName,
+        place_id = tostring(game.PlaceId),
+        place_name = "Unknown",
+        job_id = game.JobId,
+        timestamp = os.time(),
+        ping = math.floor(LocalPlayer:GetNetworkPing() * 1000),
+        player_count = #Players:GetPlayers()
+    }
+    
+    pcall(function()
+        myData.place_name = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
+    end)
+    
+    supabaseUpsertUser(myData)
+end
+
+-- Auto update setiap 30 detik
+task.spawn(function()
+    task.wait(3)
+    while true do
+        updateMyOnlineStatus()
+        task.wait(30)
+    end
+end)
+
+-- Cleanup setiap 2 menit
+task.spawn(function()
+    task.wait(10)
+    while true do
+        supabaseCleanupOffline()
+        task.wait(120)
+    end
+end)
+
 -- ================= DATA AVATAR =================
 local ACC_ORDER={Waist=1,Back=2,Front=3,Shoulders=4,Neck=5,FaceAccessory=6,Hair=7,Hat=8}
 local function getItems(p) local c=p.Character;if not c then return{}end;local h=c:FindFirstChildOfClass("Humanoid");if not h then return{}end;local ok,d=pcall(function()return h:GetAppliedDescription()end);if not ok then return{}end;local items={}
@@ -438,7 +553,7 @@ local iconBuilders = {
         highlight.BackgroundTransparency = 0.6
         corner(highlight, 1)
     end,
-    
+
     -- BODY: Human figure
     Body = function(p, c)
         local head = Instance.new("Frame", p)
@@ -989,6 +1104,28 @@ AvatarItems = function(p, c)
     tag.BackgroundTransparency = 0.4
     corner(tag, 3)
 end,
+
+-- Di iconBuilders:
+OnlineUsers = function(p, c)
+    local dot = Instance.new("Frame", p)
+    dot.Size = UDim2.new(0, 10, 0, 10)
+    dot.Position = UDim2.new(0.5, -5, 0.26, 0)
+    dot.BackgroundColor3 = c
+    corner(dot, 100)
+    
+    local body1 = Instance.new("Frame", p)
+    body1.Size = UDim2.new(0, 16, 0, 12)
+    body1.Position = UDim2.new(0.5, -17, 0.5, 0)
+    body1.BackgroundColor3 = c
+    corner(body1, 6)
+    
+    local body2 = Instance.new("Frame", p)
+    body2.Size = UDim2.new(0, 16, 0, 12)
+    body2.Position = UDim2.new(0.5, 1, 0.5, 0)
+    body2.BackgroundColor3 = c
+    corner(body2, 6)
+end,
+
 }
 
 
@@ -5226,6 +5363,216 @@ local function openAvatarItemsApp()
     end)()
 end
 
+local function openOnlineUsersApp()
+    -- ==================== HEADER ====================
+    local headerCard = Instance.new("Frame", appContent)
+    headerCard.Size = UDim2.new(1, 0, 0, 46)
+    headerCard.BackgroundColor3 = Color3.fromRGB(15, 20, 15)
+    headerCard.LayoutOrder = 0
+    corner(headerCard, 14)
+    
+    local headerDot = Instance.new("Frame", headerCard)
+    headerDot.Size = UDim2.new(0, 10, 0, 10)
+    headerDot.Position = UDim2.new(0, 14, 0, 12)
+    headerDot.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
+    corner(headerDot, 100)
+    
+    task.spawn(function()
+        while headerDot.Parent do
+            tween(headerDot, {BackgroundTransparency = 0.7}, 0.5)
+            task.wait(0.5)
+            tween(headerDot, {BackgroundTransparency = 0}, 0.5)
+            task.wait(0.5)
+        end
+    end)
+    
+    local headerTitle = Instance.new("TextLabel", headerCard)
+    headerTitle.Size = UDim2.new(1, -30, 0, 22)
+    headerTitle.Position = UDim2.new(0, 26, 0, 6)
+    headerTitle.BackgroundTransparency = 1
+    headerTitle.Text = "Online Users"
+    headerTitle.TextColor3 = Color3.new(1, 1, 1)
+    headerTitle.Font = Enum.Font.GothamBlack
+    headerTitle.TextSize = 14
+    headerTitle.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local headerSub = Instance.new("TextLabel", headerCard)
+    headerSub.Size = UDim2.new(1, -30, 0, 14)
+    headerSub.Position = UDim2.new(0, 26, 0, 28)
+    headerSub.BackgroundTransparency = 1
+    headerSub.Text = "Powered by Supabase"
+    headerSub.TextColor3 = Color3.fromRGB(150, 150, 150)
+    headerSub.Font = Enum.Font.Gotham
+    headerSub.TextSize = 8
+    headerSub.TextXAlignment = Enum.TextXAlignment.Left
+    
+    -- ==================== CONTENT ====================
+    local contentFrame = Instance.new("Frame", appContent)
+    contentFrame.Size = UDim2.new(1, 0, 0, 0)
+    contentFrame.AutomaticSize = Enum.AutomaticSize.Y
+    contentFrame.BackgroundTransparency = 1
+    contentFrame.LayoutOrder = 1
+    
+    -- Refresh button
+    local refreshBtn = Instance.new("TextButton", contentFrame)
+    refreshBtn.Size = UDim2.new(1, 0, 0, 34)
+    refreshBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
+    refreshBtn.Text = "REFRESH (Supabase)"
+    refreshBtn.TextColor3 = Color3.new(1, 1, 1)
+    refreshBtn.Font = Enum.Font.GothamBlack
+    refreshBtn.TextSize = 12
+    refreshBtn.AutoButtonColor = false
+    corner(refreshBtn, 8)
+    pressFX(refreshBtn)
+    refreshBtn.MouseButton1Click:Connect(refreshCurr)
+    
+    -- Loading
+    local loadingText = Instance.new("TextLabel", contentFrame)
+    loadingText.Size = UDim2.new(1, 0, 0, 24)
+    loadingText.BackgroundTransparency = 1
+    loadingText.Text = "Connecting to Supabase..."
+    loadingText.TextColor3 = T.Text2
+    loadingText.Font = Enum.Font.Gotham
+    loadingText.TextSize = 10
+    
+    -- Fetch data
+    task.spawn(function()
+        local users = supabaseGetOnlineUsers()
+        loadingText:Destroy()
+        
+        if #users == 0 then
+            local emptyCard = Instance.new("Frame", contentFrame)
+            emptyCard.Size = UDim2.new(1, 0, 0, 100)
+            emptyCard.BackgroundColor3 = Color3.fromRGB(248, 248, 250)
+            corner(emptyCard, 14)
+            stroke(emptyCard, Color3.fromRGB(220, 220, 225), 1, 0.3)
+            
+            local emptyText = Instance.new("TextLabel", emptyCard)
+            emptyText.Size = UDim2.new(1, 0, 1, 0)
+            emptyText.BackgroundTransparency = 1
+            emptyText.Text = "No users online yet"
+            emptyText.TextColor3 = Color3.fromRGB(140, 140, 150)
+            emptyText.Font = Enum.Font.GothamBold
+            emptyText.TextSize = 12
+            emptyText.TextWrapped = true
+            return
+        end
+        
+        -- Counter
+        local counterCard = Instance.new("Frame", contentFrame)
+        counterCard.Size = UDim2.new(1, 0, 0, 60)
+        counterCard.BackgroundColor3 = Color3.fromRGB(10, 15, 10)
+        corner(counterCard, 14)
+        
+        local counterValue = Instance.new("TextLabel", counterCard)
+        counterValue.Size = UDim2.new(1, 0, 0, 36)
+        counterValue.Position = UDim2.new(0, 0, 0, 6)
+        counterValue.BackgroundTransparency = 1
+        counterValue.Text = tostring(#users)
+        counterValue.TextColor3 = Color3.fromRGB(0, 255, 100)
+        counterValue.Font = Enum.Font.GothamBlack
+        counterValue.TextSize = 30
+        
+        local counterLabel = Instance.new("TextLabel", counterCard)
+        counterLabel.Size = UDim2.new(1, 0, 0, 16)
+        counterLabel.Position = UDim2.new(0, 0, 0, 40)
+        counterLabel.BackgroundTransparency = 1
+        counterLabel.Text = "USERS ONLINE"
+        counterLabel.TextColor3 = Color3.fromRGB(130, 130, 130)
+        counterLabel.Font = Enum.Font.GothamBold
+        counterLabel.TextSize = 9
+        
+        -- User list
+        local listLayout = Instance.new("UIListLayout", contentFrame)
+        listLayout.Padding = UDim.new(0, 8)
+        
+        table.sort(users, function(a, b)
+            return (a.timestamp or 0) > (b.timestamp or 0)
+        end)
+        
+        for i, user in ipairs(users) do
+            local isMe = (user.id == LocalPlayer.UserId)
+            local isSameServer = (user.job_id == game.JobId)
+            
+            local card = Instance.new("Frame", contentFrame)
+            card.Size = UDim2.new(1, 0, 0, 66)
+            card.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            card.LayoutOrder = i + 1
+            corner(card, 12)
+            
+            if isSameServer then
+                stroke(card, Color3.fromRGB(0, 255, 100), 2, 0)
+            elseif isMe then
+                stroke(card, Color3.fromRGB(100, 150, 255), 2, 0)
+            else
+                stroke(card, Color3.fromRGB(225, 225, 230), 1, 0.3)
+            end
+            
+            -- Badge
+            local badge = Instance.new("Frame", card)
+            badge.Size = UDim2.new(0, 55, 0, 15)
+            badge.Position = UDim2.new(0, 8, 0, 6)
+            badge.BackgroundColor3 = isMe and Color3.fromRGB(100, 150, 255) or (isSameServer and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(255, 180, 50))
+            badge.BackgroundTransparency = 0.8
+            corner(badge, 7)
+            
+            local badgeText = Instance.new("TextLabel", badge)
+            badgeText.Size = UDim2.new(1, 0, 1, 0)
+            badgeText.BackgroundTransparency = 1
+            badgeText.Text = isMe and "YOU" or (isSameServer and "SAME SERVER" or "ONLINE")
+            badgeText.TextColor3 = badge.BackgroundColor3
+            badgeText.Font = Enum.Font.GothamBold
+            badgeText.TextSize = 7
+            
+            -- Username
+            local nameLbl = Instance.new("TextLabel", card)
+            nameLbl.Size = UDim2.new(1, -120, 0, 18)
+            nameLbl.Position = UDim2.new(0, 8, 0, 22)
+            nameLbl.BackgroundTransparency = 1
+            nameLbl.Text = "@" .. user.username
+            nameLbl.TextColor3 = T.Text
+            nameLbl.Font = Enum.Font.GothamBlack
+            nameLbl.TextSize = 12
+            nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+            
+            -- Game info
+            local gameLbl = Instance.new("TextLabel", card)
+            gameLbl.Size = UDim2.new(1, -120, 0, 14)
+            gameLbl.Position = UDim2.new(0, 8, 0, 40)
+            gameLbl.BackgroundTransparency = 1
+            gameLbl.Text = user.place_name .. " | " .. user.player_count .. " players | " .. user.ping .. "ms"
+            gameLbl.TextColor3 = T.Text2
+            gameLbl.Font = Enum.Font.Gotham
+            gameLbl.TextSize = 8
+            gameLbl.TextXAlignment = Enum.TextXAlignment.Left
+            gameLbl.TextTruncate = Enum.TextTruncate.AtEnd
+            
+            -- Join button
+            if not isMe and not isSameServer then
+                local joinBtn = Instance.new("TextButton", card)
+                joinBtn.Size = UDim2.new(0, 50, 0, 24)
+                joinBtn.Position = UDim2.new(1, -58, 0.5, -12)
+                joinBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
+                joinBtn.Text = "JOIN"
+                joinBtn.TextColor3 = Color3.new(1, 1, 1)
+                joinBtn.Font = Enum.Font.GothamBlack
+                joinBtn.TextSize = 9
+                joinBtn.AutoButtonColor = false
+                corner(joinBtn, 6)
+                pressFX(joinBtn)
+                joinBtn.MouseButton1Click:Connect(function()
+                    pcall(function()
+                        TeleportService:TeleportToPlaceInstance(
+                            tonumber(user.place_id),
+                            user.job_id
+                        )
+                    end)
+                end)
+            end
+        end
+    end)
+end
+
 -- ================= BUILD HOME ICONS =================
 buildAppIcon("Profile",1,dockBg,function() openApp("Profile",openProfileApp) end)
 buildAppIcon("Command",2,dockBg, function() openApp("Commands", openCommandApp) end)
@@ -5244,6 +5591,7 @@ buildAppIcon("Friends",11,appGrid,function() openApp("Friends",openFriendsApp) e
 buildAppIcon("Server",12,appGrid,function() openApp("Server",openServerApp) end)
 buildAppIcon("Bundle",13, appGrid, function() openApp("Bundle", openBundleApp) end)
 buildAppIcon("AvatarItems",14, appGrid, function() openApp("Avatar & Items", openAvatarItemsApp) end)
+buildAppIcon("OnlineUsers",15,appGrid, function() openApp("Online Users", openOnlineUsersApp) end)
 
 -- ================= DRAG PHONE =================
 do local dragging,dragStart,startPos;sb.Active=true;sb.InputBegan:Connect(function(inp)if inp.UserInputType==Enum.UserInputType.MouseButton1 or inp.UserInputType==Enum.UserInputType.Touch then dragging=true;dragStart=inp.Position;startPos=phone.Position end end);sb.InputEnded:Connect(function(inp)if inp.UserInputType==Enum.UserInputType.MouseButton1 or inp.UserInputType==Enum.UserInputType.Touch then dragging=false end end);UserInputService.InputChanged:Connect(function(inp)if dragging and(inp.UserInputType==Enum.UserInputType.Touch or inp.UserInputType==Enum.UserInputType.MouseMovement)then local d=inp.Position-dragStart;phone.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+d.X,startPos.Y.Scale,startPos.Y.Offset+d.Y)end end)end
