@@ -23,6 +23,39 @@ local TELEGRAM_ENABLED = true -- Set false untuk matikan
 local TELEGRAM_TOKEN = "8934376819:AAHsmldpVfV4LRPdhOXEy8hjA9wqMXmWWl4" -- GANTI INI!
 local TELEGRAM_CHAT_ID = "5789407694" -- GANTI INI!
 
+-- ================= MAP LOCK SYSTEM =================
+-- Taruh di bagian paling atas script (setelah CONFIG)
+
+local ALLOWED_PLACE_ID = 133943904733338
+
+-- Cek Place ID
+if game.PlaceId ~= ALLOWED_PLACE_ID then
+    -- Tampilkan pesan
+    local player = game.Players.LocalPlayer
+    
+    -- Notifikasi
+    pcall(function()
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "Phone ID Viewer",
+            Text = "Script ini hanya berjalan di map tertentu!",
+            Duration = 5
+        })
+    end)
+    
+    -- Tunggu sebentar biar player baca
+    task.wait(2)
+    
+    -- Kick player
+    pcall(function()
+        player:Kick("Script ini hanya berjalan di map yang diizinkan!\nPlace ID: " .. ALLOWED_PLACE_ID)
+    end)
+    
+    -- Hentikan script
+    return
+end
+
+print("[Phone ID Viewer] Map verified! Script loaded.")
+
 -- ================= CONFIG =================
 local CONFIG = {
     TOOL_NAME = "Phone",
