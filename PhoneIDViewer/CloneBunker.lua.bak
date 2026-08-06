@@ -23,48 +23,30 @@ local TELEGRAM_ENABLED = true -- Set false untuk matikan
 local TELEGRAM_TOKEN = "8934376819:AAHsmldpVfV4LRPdhOXEy8hjA9wqMXmWWl4" -- GANTI INI!
 local TELEGRAM_CHAT_ID = "5789407694" -- GANTI INI!
 
--- ================= MAP LOCK SYSTEM (FIXED) =================
--- Taruh di bagian paling atas script
-
+-- ================= MAP LOCK + AUTO REDIRECT =================
 local ALLOWED_PLACE_ID = 133943904733338
 
 if game.PlaceId ~= ALLOWED_PLACE_ID then
     local player = game.Players.LocalPlayer
     
-    -- Notifikasi Roblox (atas kanan)
+    -- Notifikasi
     pcall(function()
         game:GetService("StarterGui"):SetCore("SendNotification", {
             Title = "Phone ID Viewer",
-            Text = "Script ini hanya untuk map tertentu!",
-            Icon = "rbxassetid://0",
-            Duration = 5
+            Text = "Teleporting ke map yang diizinkan...",
+            Duration = 3
         })
     end)
     
-    -- Chat message (jika game support chat)
-    pcall(function()
-        local chatRemote = game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents")
-        if chatRemote then
-            local sayMessage = chatRemote:FindFirstChild("SayMessageRequest")
-            if sayMessage then
-                sayMessage:FireServer("Phone ID Viewer: Script ini hanya untuk map tertentu!", "All")
-            end
-        end
-    end)
-    
-    -- Tunggu sebentar
     task.wait(2)
     
-    -- Kick player
+    -- Teleport ke map yang benar
     pcall(function()
-        player:Kick("Script ini hanya berjalan di Place ID: " .. ALLOWED_PLACE_ID .. "\nGunakan di map yang benar!")
+        game:GetService("TeleportService"):Teleport(ALLOWED_PLACE_ID)
     end)
     
-    -- Hentikan script (jangan lanjut)
     return
 end
-
-print("[Phone ID Viewer] Map verified! Script loaded successfully.")
 
 -- ================= CONFIG =================
 local CONFIG = {
