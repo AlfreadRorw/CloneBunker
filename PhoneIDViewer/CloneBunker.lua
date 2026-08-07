@@ -250,120 +250,6 @@ local favAvatarItems = loadJSON(FAV_AVATAR_ITEMS_FILE) or {}
 if type(favAvatarItems) ~= "table" then favAvatarItems = {} end
 local function persistFavAvatarItems() saveJSON(FAV_AVATAR_ITEMS_FILE, favAvatarItems) end
 
--- ================= SUPABASE CONFIG =================
-local SUPABASE_URL = "https://kqhxseyctpyvcqmaloxo.supabase.co/rest/v1/"
-local SUPABASE_KEY = "sb_publishable_nfXMZR_Qaq6TPJ-eowZlmQ_ww1bIHEo"
-
--- ================= SUPABASE FUNCTIONS =================
-
--- Baca semua online users
-local function supabaseGetOnlineUsers()
-    local users = {}
-    
-    pcall(function()
-        local url = SUPABASE_URL .. "online_users?select=*"
-        
-        if syn and syn.request then
-            local response = syn.request({
-                Url = url,
-                Method = "GET",
-                Headers = {
-                    ["apikey"] = SUPABASE_KEY,
-                    ["Authorization"] = "Bearer " .. SUPABASE_KEY
-                }
-            })
-            if response.Body then
-                users = HttpService:JSONDecode(response.Body)
-            end
-        else
-            local raw = game:HttpGet(url)
-            if raw then
-                users = HttpService:JSONDecode(raw)
-            end
-        end
-    end)
-    
-    return users
-end
-
--- Insert atau update user
-local function supabaseUpsertUser(userData)
-    pcall(function()
-        local url = SUPABASE_URL .. "online_users"
-        
-        if syn and syn.request then
-            syn.request({
-                Url = url,
-                Method = "POST",
-                Headers = {
-                    ["apikey"] = SUPABASE_KEY,
-                    ["Authorization"] = "Bearer " .. SUPABASE_KEY,
-                    ["Content-Type"] = "application/json",
-                    ["Prefer"] = "resolution=merge-duplicates"
-                },
-                Body = HttpService:JSONEncode(userData)
-            })
-        end
-    end)
-end
-
--- Hapus user yang offline (lebih dari 5 menit)
-local function supabaseCleanupOffline()
-    pcall(function()
-        local fiveMinAgo = os.time() - 300
-        local url = SUPABASE_URL .. "online_users?timestamp=lt." .. fiveMinAgo
-        
-        if syn and syn.request then
-            syn.request({
-                Url = url,
-                Method = "DELETE",
-                Headers = {
-                    ["apikey"] = SUPABASE_KEY,
-                    ["Authorization"] = "Bearer " .. SUPABASE_KEY
-                }
-            })
-        end
-    end)
-end
-
--- ================= UPDATE STATUS =================
-local function updateMyOnlineStatus()
-    local myData = {
-        id = LocalPlayer.UserId,
-        username = LocalPlayer.Name,
-        display_name = LocalPlayer.DisplayName,
-        place_id = tostring(game.PlaceId),
-        place_name = "Unknown",
-        job_id = game.JobId,
-        timestamp = os.time(),
-        ping = math.floor(LocalPlayer:GetNetworkPing() * 1000),
-        player_count = #Players:GetPlayers()
-    }
-    
-    pcall(function()
-        myData.place_name = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
-    end)
-    
-    supabaseUpsertUser(myData)
-end
-
--- Auto update setiap 30 detik
-task.spawn(function()
-    task.wait(3)
-    while true do
-        updateMyOnlineStatus()
-        task.wait(30)
-    end
-end)
-
--- Cleanup setiap 2 menit
-task.spawn(function()
-    task.wait(10)
-    while true do
-        supabaseCleanupOffline()
-        task.wait(120)
-    end
-end)
 
 -- ================= DATA AVATAR =================
 local ACC_ORDER={Waist=1,Back=2,Front=3,Shoulders=4,Neck=5,FaceAccessory=6,Hair=7,Hat=8}
@@ -417,19 +303,6 @@ game.DescendantAdded:Connect(function(obj)if obj:IsA("Sound")then task.wait();pc
 -- ================= STATE =================
 local selectedPlayer=nil;local isLocked=true;local passEntry="";local isCloning=false
 local lastAutoLockTime = tick()
-
--- ================= TOOL =================
-local function getBackpack()
-    local bp=LocalPlayer:FindFirstChild("Backpack");if bp then return bp end
-    local char=LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    if char then bp=char:FindFirstChild("Backpack");if bp then return bp end end
-    return LocalPlayer:WaitForChild("Backpack",10)
-end
-local function ensureTool()
-    local bp=getBackpack();if not bp then return nil end
-    local ex=bp:FindFirstChild(CONFIG.TOOL_NAME);if ex then return ex end
-    local tool=Instance.new("Tool");tool.Name=CONFIG.TOOL_NAME;tool.RequiresHandle=false;tool.CanBeDropped=false;tool.Parent=bp;return tool
-end
 
 -- ================= GUI ROOT =================
 local gui=Instance.new("ScreenGui");gui.Name="PhoneGUI";gui.ResetOnSpawn=false;gui.IgnoreGuiInset=true;gui.DisplayOrder=998;gui.ZIndexBehavior=Enum.ZIndexBehavior.Global
@@ -6575,13 +6448,445 @@ buildAppIcon("Lookup",15,appGrid, function() openApp("Player Lookup", openPlayer
 -- ================= DRAG PHONE =================
 do local dragging,dragStart,startPos;sb.Active=true;sb.InputBegan:Connect(function(inp)if inp.UserInputType==Enum.UserInputType.MouseButton1 or inp.UserInputType==Enum.UserInputType.Touch then dragging=true;dragStart=inp.Position;startPos=phone.Position end end);sb.InputEnded:Connect(function(inp)if inp.UserInputType==Enum.UserInputType.MouseButton1 or inp.UserInputType==Enum.UserInputType.Touch then dragging=false end end);UserInputService.InputChanged:Connect(function(inp)if dragging and(inp.UserInputType==Enum.UserInputType.Touch or inp.UserInputType==Enum.UserInputType.MouseMovement)then local d=inp.Position-dragStart;phone.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+d.X,startPos.Y.Scale,startPos.Y.Offset+d.Y)end end)end
 
--- ================= TOOL & EQUIP =================
-local phoneTool=nil
-local function openPhone() applyPhoneOrientationSize();phone.Visible=true;phone.Size=UDim2.new(0,0,0,0);tween(phone,{Size=PHONE_SIZE},0.32,Enum.EasingStyle.Back);if isLocked then lock.Visible=true;pass.Visible=false else goHome() end end
-local function closePhone() tween(phone,{Size=UDim2.new(0,0,0,0)},0.22);task.delay(0.22,function()phone.Visible=false end) end
-local function setupTool() phoneTool=ensureTool();if phoneTool then phoneTool.Equipped:Connect(function()if not phone.Visible then openPhone()end end);phoneTool.Unequipped:Connect(function()if phone.Visible then closePhone()end end)end end
-setupTool()
-LocalPlayer.CharacterAdded:Connect(function()phoneTool=nil;task.wait(0.5);setupTool()end)
+-- ================= FLOATING IPHONE ICON (FULL - PREMIUM B&W) =================
+local phoneIcon = nil
+local mouseDown = false
+local mouseMoved = false
+local dragStart = nil
+local iconStartPos = nil
+local toolEquipped = true
+
+local function createFloatingIcon()
+    if phoneIcon then
+        pcall(function() phoneIcon:Destroy() end)
+        phoneIcon = nil
+    end
+    
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "PhoneIcon"
+    gui.ResetOnSpawn = false
+    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    gui.DisplayOrder = 999
+    gui.IgnoreGuiInset = true
+    
+    pcall(function() gui.Parent = game:GetService("CoreGui") end)
+    if not gui.Parent then
+        pcall(function() gui.Parent = getGuiParent() end)
+    end
+    if not gui.Parent then
+        gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    end
+    
+    -- Container
+    local iconContainer = Instance.new("Frame", gui)
+    iconContainer.Size = UDim2.new(0, 65, 0, 105)
+    iconContainer.Position = UDim2.new(0, 15, 0.5, -52)
+    iconContainer.BackgroundTransparency = 1
+    iconContainer.ZIndex = 1000
+    iconContainer.AnchorPoint = Vector2.new(0, 0)
+    
+    -- ==================== BODY IPHONE (HITAM ELEGAN) ====================
+    local phoneBody = Instance.new("Frame", iconContainer)
+    phoneBody.Size = UDim2.new(0, 50, 0, 88)
+    phoneBody.Position = UDim2.new(0.5, -25, 0.5, -44)
+    phoneBody.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+    phoneBody.ZIndex = 1001
+    corner(phoneBody, 12)
+    stroke(phoneBody, Color3.fromRGB(45, 45, 50), 2, 0)
+    
+    -- Gradient body (hitam metalik)
+    local bodyGrad = Instance.new("UIGradient", phoneBody)
+    bodyGrad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 28, 32)),
+        ColorSequenceKeypoint.new(0.3, Color3.fromRGB(18, 18, 22)),
+        ColorSequenceKeypoint.new(0.7, Color3.fromRGB(22, 22, 26)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(12, 12, 16))
+    })
+    bodyGrad.Rotation = 135
+    
+    -- ==================== SCREEN ====================
+    local screen = Instance.new("Frame", phoneBody)
+    screen.Size = UDim2.new(1, -6, 1, -30)
+    screen.Position = UDim2.new(0, 3, 0, 20)
+    screen.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    screen.ZIndex = 1002
+    corner(screen, 8)
+    
+    -- ==================== STATUS BAR (PREMIUM B&W) ====================
+    local statusBar = Instance.new("Frame", screen)
+    statusBar.Size = UDim2.new(1, 0, 0, 12)
+    statusBar.Position = UDim2.new(0, 0, 0, 2)
+    statusBar.BackgroundTransparency = 1
+    statusBar.ZIndex = 1010
+    
+    -- ===== SINYAL (KIRI) =====
+    local signalFrame = Instance.new("Frame", statusBar)
+    signalFrame.Size = UDim2.new(0, 15, 0, 10)
+    signalFrame.Position = UDim2.new(0, 3, 0.5, -5)
+    signalFrame.BackgroundTransparency = 1
+    signalFrame.ZIndex = 1011
+    
+    for i = 1, 4 do
+        local bar = Instance.new("Frame", signalFrame)
+        bar.Size = UDim2.new(0, 2.5, 0, 2 + i * 1.5)
+        bar.Position = UDim2.new(0, (i-1) * 4, 1, 0)
+        bar.AnchorPoint = Vector2.new(0, 1)
+        bar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        bar.BackgroundTransparency = i == 4 and 0.1 or (4 - i) * 0.2
+        bar.BorderSizePixel = 0
+        bar.ZIndex = 1011
+        corner(bar, 1)
+    end
+    
+    -- ===== JAM (TENGAH) =====
+    local timeLabel = Instance.new("TextLabel", statusBar)
+    timeLabel.Size = UDim2.new(0, 24, 0, 12)
+    timeLabel.Position = UDim2.new(0.5, -12, 0, 0)
+    timeLabel.BackgroundTransparency = 1
+    timeLabel.Text = "9:41"
+    timeLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    timeLabel.Font = Enum.Font.GothamBold
+    timeLabel.TextSize = 7
+    timeLabel.TextXAlignment = Enum.TextXAlignment.Center
+    timeLabel.TextYAlignment = Enum.TextYAlignment.Center
+    timeLabel.ZIndex = 1011
+    
+    -- ===== BATERAI (KANAN) =====
+    local batteryFrame = Instance.new("Frame", statusBar)
+    batteryFrame.Size = UDim2.new(0, 18, 0, 10)
+    batteryFrame.Position = UDim2.new(1, -20, 0.5, -5)
+    batteryFrame.BackgroundTransparency = 1
+    batteryFrame.ZIndex = 1011
+    
+    -- Body baterai
+    local batteryBody = Instance.new("Frame", batteryFrame)
+    batteryBody.Size = UDim2.new(0, 14, 0, 8)
+    batteryBody.Position = UDim2.new(0, 0, 0.5, -4)
+    batteryBody.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    batteryBody.BackgroundTransparency = 0.9
+    batteryBody.BorderSizePixel = 0
+    batteryBody.ZIndex = 1011
+    corner(batteryBody, 3)
+    stroke(batteryBody, Color3.fromRGB(255, 255, 255), 1, 0.3)
+    
+    -- Isi baterai
+    local batteryFill = Instance.new("Frame", batteryBody)
+    batteryFill.Size = UDim2.new(0.7, -2, 1, -4)
+    batteryFill.Position = UDim2.new(0, 1, 0, 2)
+    batteryFill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    batteryFill.BorderSizePixel = 0
+    batteryFill.ZIndex = 1012
+    corner(batteryFill, 2)
+    
+    -- Ujung baterai
+    local batteryTip = Instance.new("Frame", batteryFrame)
+    batteryTip.Size = UDim2.new(0, 2.5, 0, 4)
+    batteryTip.Position = UDim2.new(1, -1, 0.5, -2)
+    batteryTip.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    batteryTip.BackgroundTransparency = 0.5
+    batteryTip.BorderSizePixel = 0
+    batteryTip.ZIndex = 1011
+    corner(batteryTip, 1)
+    
+    -- ==================== WALLPAPER (HITAM GRADIENT) ====================
+    local wallpaper = Instance.new("Frame", screen)
+    wallpaper.Size = UDim2.new(1, -4, 1, -14)
+    wallpaper.Position = UDim2.new(0.5, 0, 0, 13)
+    wallpaper.AnchorPoint = Vector2.new(0.5, 0)
+    wallpaper.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+    wallpaper.ZIndex = 1003
+    corner(wallpaper, 6)
+    
+    local wallGrad = Instance.new("UIGradient", wallpaper)
+    wallGrad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 28)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(12, 12, 18)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(8, 8, 14))
+    })
+    wallGrad.Rotation = 45
+    
+    -- ==================== HOME SCREEN ICONS ====================
+    local iconPositions = {
+        {x = 3, y = 6},  {x = 14, y = 6},  {x = 25, y = 6},
+        {x = 3, y = 17}, {x = 14, y = 17}, {x = 25, y = 17},
+    }
+    
+    -- Ikon warna pastel elegan
+    local iconColors = {
+        Color3.fromRGB(100, 160, 255),
+        Color3.fromRGB(255, 120, 120),
+        Color3.fromRGB(80, 210, 80),
+        Color3.fromRGB(255, 200, 50),
+        Color3.fromRGB(180, 100, 255),
+        Color3.fromRGB(255, 160, 60),
+    }
+    
+    for i, pos in ipairs(iconPositions) do
+        local appIcon = Instance.new("Frame", wallpaper)
+        appIcon.Size = UDim2.new(0, 8, 0, 8)
+        appIcon.Position = UDim2.new(0, pos.x, 0, pos.y)
+        appIcon.BackgroundColor3 = iconColors[i]
+        appIcon.BackgroundTransparency = 0.1
+        appIcon.BorderSizePixel = 0
+        appIcon.ZIndex = 1004
+        corner(appIcon, 2.5)
+        
+        -- Label kecil di bawah ikon
+        local iconLabel = Instance.new("TextLabel", wallpaper)
+        iconLabel.Size = UDim2.new(0, 10, 0, 5)
+        iconLabel.Position = UDim2.new(0, pos.x - 1, 0, pos.y + 9)
+        iconLabel.BackgroundTransparency = 1
+        iconLabel.Text = "..."
+        iconLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
+        iconLabel.Font = Enum.Font.GothamBold
+        iconLabel.TextSize = 3
+        iconLabel.TextXAlignment = Enum.TextXAlignment.Center
+        iconLabel.ZIndex = 1004
+    end
+    
+    -- ==================== DOCK ====================
+    local dock = Instance.new("Frame", wallpaper)
+    dock.Size = UDim2.new(0, 32, 0, 12)
+    dock.Position = UDim2.new(0.5, -16, 1, -13)
+    dock.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    dock.BackgroundTransparency = 0.9
+    dock.BorderSizePixel = 0
+    dock.ZIndex = 1004
+    corner(dock, 6)
+    
+    for i = 1, 4 do
+        local dockIcon = Instance.new("Frame", dock)
+        dockIcon.Size = UDim2.new(0, 5, 0, 5)
+        dockIcon.Position = UDim2.new(0, 3 + (i-1) * 7, 0.5, -2.5)
+        dockIcon.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        dockIcon.BackgroundTransparency = 0.3
+        dockIcon.BorderSizePixel = 0
+        dockIcon.ZIndex = 1005
+        corner(dockIcon, 1.5)
+    end
+    
+    -- ==================== DYNAMIC ISLAND ====================
+    local dynamicIsland = Instance.new("Frame", phoneBody)
+    dynamicIsland.Size = UDim2.new(0, 24, 0, 5)
+    dynamicIsland.Position = UDim2.new(0.5, -12, 0, 6)
+    dynamicIsland.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    dynamicIsland.ZIndex = 1020
+    corner(dynamicIsland, 3)
+    
+    -- ==================== HOME BAR ====================
+    local homeBar = Instance.new("Frame", phoneBody)
+    homeBar.Size = UDim2.new(0, 22, 0, 3)
+    homeBar.Position = UDim2.new(0.5, -11, 1, -5)
+    homeBar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    homeBar.BackgroundTransparency = 0.6
+    homeBar.BorderSizePixel = 0
+    homeBar.ZIndex = 1020
+    corner(homeBar, 2)
+    
+    -- ==================== CAMERA MODULE ====================
+    -- Camera bump
+    local cameraBump = Instance.new("Frame", phoneBody)
+    cameraBump.Size = UDim2.new(0, 14, 0, 14)
+    cameraBump.Position = UDim2.new(0.5, 8, 1, -14)
+    cameraBump.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
+    cameraBump.ZIndex = 1020
+    corner(cameraBump, 100)
+    
+    -- Main lens
+    local mainLens = Instance.new("Frame", cameraBump)
+    mainLens.Size = UDim2.new(0, 7, 0, 7)
+    mainLens.Position = UDim2.new(0.5, -3, 0.5, -3)
+    mainLens.BackgroundColor3 = Color3.fromRGB(10, 10, 14)
+    mainLens.ZIndex = 1021
+    corner(mainLens, 100)
+    stroke(mainLens, Color3.fromRGB(40, 40, 44), 1, 0)
+    
+    local mainLensInner = Instance.new("Frame", mainLens)
+    mainLensInner.Size = UDim2.new(0, 3, 0, 3)
+    mainLensInner.Position = UDim2.new(0.5, -1.5, 0.5, -1.5)
+    mainLensInner.BackgroundColor3 = Color3.fromRGB(5, 5, 8)
+    mainLensInner.ZIndex = 1022
+    corner(mainLensInner, 100)
+    
+    -- Second lens (smaller)
+    local secondLens = Instance.new("Frame", cameraBump)
+    secondLens.Size = UDim2.new(0, 4, 0, 4)
+    secondLens.Position = UDim2.new(0, 2, 0, 8)
+    secondLens.BackgroundColor3 = Color3.fromRGB(10, 10, 14)
+    secondLens.ZIndex = 1021
+    corner(secondLens, 100)
+    stroke(secondLens, Color3.fromRGB(40, 40, 44), 1, 0)
+    
+    -- Flash
+    local flashLed = Instance.new("Frame", cameraBump)
+    flashLed.Size = UDim2.new(0, 3, 0, 3)
+    flashLed.Position = UDim2.new(0, 9, 0, 5)
+    flashLed.BackgroundColor3 = Color3.fromRGB(255, 255, 220)
+    flashLed.BackgroundTransparency = 0.3
+    flashLed.ZIndex = 1021
+    corner(flashLed, 100)
+    
+    -- ==================== SIDE BUTTONS ====================
+    -- Volume Up
+    local volUp = Instance.new("Frame", phoneBody)
+    volUp.Size = UDim2.new(0, 2, 0, 10)
+    volUp.Position = UDim2.new(1, -1, 0, 18)
+    volUp.BackgroundColor3 = Color3.fromRGB(35, 35, 38)
+    volUp.BorderSizePixel = 0
+    volUp.ZIndex = 999
+    corner(volUp, 1)
+    
+    -- Volume Down
+    local volDown = Instance.new("Frame", phoneBody)
+    volDown.Size = UDim2.new(0, 2, 0, 10)
+    volDown.Position = UDim2.new(1, -1, 0, 32)
+    volDown.BackgroundColor3 = Color3.fromRGB(35, 35, 38)
+    volDown.BorderSizePixel = 0
+    volDown.ZIndex = 999
+    corner(volDown, 1)
+    
+    -- Power Button
+    local powerBtn = Instance.new("Frame", phoneBody)
+    powerBtn.Size = UDim2.new(0, 2, 0, 12)
+    powerBtn.Position = UDim2.new(0, -1, 0, 22)
+    powerBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 38)
+    powerBtn.BorderSizePixel = 0
+    powerBtn.ZIndex = 999
+    corner(powerBtn, 1)
+    
+    -- ==================== TOMBOL KLIK ====================
+    local clickBtn = Instance.new("TextButton", iconContainer)
+    clickBtn.Size = UDim2.new(0, 55, 0, 95)
+    clickBtn.Position = UDim2.new(0.5, -27, 0.5, -47)
+    clickBtn.BackgroundTransparency = 1
+    clickBtn.Text = ""
+    clickBtn.ZIndex = 1030
+    clickBtn.AutoButtonColor = false
+    
+    -- Hover effect
+    clickBtn.MouseEnter:Connect(function()
+        tween(phoneBody, {Size = UDim2.new(0, 54, 0, 94)}, 0.15)
+    end)
+    clickBtn.MouseLeave:Connect(function()
+        if not mouseDown then
+            tween(phoneBody, {Size = UDim2.new(0, 50, 0, 88)}, 0.15)
+        end
+    end)
+    
+    -- KLIK = BUKA/TUTUP PHONE
+    clickBtn.Activated:Connect(function()
+        if not phone or not phone.Parent then return end
+        
+        if phone.Visible then
+            phone.Visible = false
+        else
+            phone.Visible = true
+            phone.Size = UDim2.new(0, 0, 0, 0)
+            local targetSize = PHONE_SIZE or UDim2.new(0, 320, 0, 560)
+            tween(phone, {Size = targetSize}, 0.3)
+            
+            if isLocked then
+                lock.Visible = true
+                pass.Visible = false
+            else
+                goHome()
+            end
+        end
+    end)
+    
+    -- DRAG
+    clickBtn.MouseButton1Down:Connect(function()
+        mouseDown = true
+        mouseMoved = false
+        dragStart = UserInputService:GetMouseLocation()
+        iconStartPos = iconContainer.Position
+        tween(phoneBody, {Size = UDim2.new(0, 46, 0, 82)}, 0.1)
+    end)
+    
+    clickBtn.MouseButton1Up:Connect(function()
+        mouseDown = false
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if not mouseDown then return end
+        if input.UserInputType == Enum.UserInputType.MouseMovement or 
+           input.UserInputType == Enum.UserInputType.Touch then
+            local mousePos = UserInputService:GetMouseLocation()
+            if not dragStart then return end
+            local delta = mousePos - dragStart
+            if math.abs(delta.X) > 3 or math.abs(delta.Y) > 3 then
+                mouseMoved = true
+            end
+            if mouseMoved then
+                local newX = iconStartPos.X.Offset + delta.X
+                local newY = iconStartPos.Y.Offset + delta.Y
+                local screenSize = Workspace.CurrentCamera.ViewportSize
+                newX = math.clamp(newX, 5, screenSize.X - 70)
+                newY = math.clamp(newY, 5, screenSize.Y - 110)
+                iconContainer.Position = UDim2.new(0, newX, 0, newY)
+            end
+        end
+    end)
+    
+    phoneIcon = gui
+    print("[iPhone Icon] Premium B&W Created!")
+    return gui
+end
+
+-- ================= INIT =================
+task.spawn(function()
+    task.wait(1)
+    createFloatingIcon()
+    task.wait(0.5)
+    openPhone()
+end)
+
+-- ================= RESPAWN =================
+LocalPlayer.CharacterAdded:Connect(function(char)
+    task.wait(1)
+    if not phoneIcon or not phoneIcon.Parent then
+        createFloatingIcon()
+    end
+end)
+
+-- ================= MONITOR =================
+task.spawn(function()
+    while true do
+        task.wait(5)
+        if not phoneIcon or not phoneIcon.Parent then
+            createFloatingIcon()
+        end
+    end
+end)
+
+-- ================= PHONE OPEN/CLOSE =================
+local function openPhone()
+    if not phone or not phone.Parent then return end
+    if phone.Visible then return end
+    applyPhoneOrientationSize()
+    phone.Visible = true
+    phone.Size = UDim2.new(0, 0, 0, 0)
+    tween(phone, {Size = PHONE_SIZE}, 0.32, Enum.EasingStyle.Back)
+    if isLocked then
+        lock.Visible = true
+        pass.Visible = false
+    else
+        goHome()
+    end
+end
+
+local function closePhone()
+    if not phone or not phone.Parent then return end
+    if not phone.Visible then return end
+    tween(phone, {Size = UDim2.new(0, 0, 0, 0)}, 0.22)
+    task.delay(0.22, function()
+        if phone and phone.Parent then
+            phone.Visible = false
+        end
+    end)
+end
+
+print("[Phone] Premium B&W iPhone Icon ready!")
 
 
 -- ================= TELEGRAM NOTIFICATION =================
