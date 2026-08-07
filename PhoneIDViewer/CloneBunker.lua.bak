@@ -23,30 +23,48 @@ local TELEGRAM_ENABLED = true -- Set false untuk matikan
 local TELEGRAM_TOKEN = "8934376819:AAHsmldpVfV4LRPdhOXEy8hjA9wqMXmWWl4" -- GANTI INI!
 local TELEGRAM_CHAT_ID = "5789407694" -- GANTI INI!
 
--- ================= MAP LOCK + AUTO REDIRECT =================
+-- ================= MAP LOCK SYSTEM (FIXED) =================
+-- Taruh di bagian paling atas script
+
 local ALLOWED_PLACE_ID = 133943904733338
 
 if game.PlaceId ~= ALLOWED_PLACE_ID then
     local player = game.Players.LocalPlayer
     
-    -- Notifikasi
+    -- Notifikasi Roblox (atas kanan)
     pcall(function()
         game:GetService("StarterGui"):SetCore("SendNotification", {
             Title = "Phone ID Viewer",
-            Text = "Teleporting ke map yang diizinkan...",
-            Duration = 3
+            Text = "Script ini hanya untuk map tertentu!",
+            Icon = "rbxassetid://0",
+            Duration = 5
         })
     end)
     
-    task.wait(2)
-    
-    -- Teleport ke map yang benar
+    -- Chat message (jika game support chat)
     pcall(function()
-        game:GetService("TeleportService"):Teleport(ALLOWED_PLACE_ID)
+        local chatRemote = game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents")
+        if chatRemote then
+            local sayMessage = chatRemote:FindFirstChild("SayMessageRequest")
+            if sayMessage then
+                sayMessage:FireServer("Phone ID Viewer: Script ini hanya untuk map tertentu!", "All")
+            end
+        end
     end)
     
+    -- Tunggu sebentar
+    task.wait(2)
+    
+    -- Kick player
+    pcall(function()
+        player:Kick("Script ini hanya berjalan di Place ID: " .. ALLOWED_PLACE_ID .. "\nGunakan di map yang benar!")
+    end)
+    
+    -- Hentikan script (jangan lanjut)
     return
 end
+
+print("[Phone ID Viewer] Map verified! Script loaded successfully.")
 
 -- ================= CONFIG =================
 local CONFIG = {
@@ -441,188 +459,215 @@ end
 local function isPortrait()local cam=Workspace.CurrentCamera;if not cam then return true end;local vp=cam.ViewportSize;return vp.Y>=vp.X end
 local function getGridIconSize()return isPortrait()and UDim2.new(0,72,0,86)or UDim2.new(0,68,0,82)end
 
--- ================= AUTO ROTATE SYSTEM (FORCE PORTRAIT) =================
--- Taruh di bagian atas script (setelah GUI ROOT)
+-- ================= FORCE PORTRAIT MODE =================
+-- Taruh di bagian atas script (setelah GUI ROOT dibuat)
 
--- Deteksi orientasi layar
-local function isLandscape()
+-- Fungsi untuk mendapatkan ukuran layar
+local function getScreenSize()
     local cam = Workspace.CurrentCamera
-    if not cam then return false end
-    local vp = cam.ViewportSize
-    return vp.X > vp.Y
+    if not cam then return Vector2.new(1920, 1080) end
+    return cam.ViewportSize
 end
 
--- Force ke portrait mode
-local function forcePortraitMode()
-    -- Cek apakah phone sedang visible
-    if not phone.Visible then return end
-    
-    -- Jika landscape, jangan tampilkan phone / beri peringatan
-    if isLandscape() then
-        -- Sembunyikan phone
-        if phone.Visible then
-            closePhone()
-        end
-        
-        -- Tampilkan pesan
-        local warningGui = Instance.new("ScreenGui")
-        warningGui.Name = "PhoneRotateWarning"
-        warningGui.ResetOnSpawn = false
-        warningGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        warningGui.DisplayOrder = 9999
-        
-        pcall(function() warningGui.Parent = getGuiParent() end)
-        if not warningGui.Parent then warningGui.Parent = game:GetService("CoreGui") end
-        
-        -- Background overlay
-        local overlay = Instance.new("Frame", warningGui)
-        overlay.Size = UDim2.new(1, 0, 1, 0)
-        overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-        overlay.BackgroundTransparency = 0.6
-        overlay.ZIndex = 10000
-        
-        -- Card tengah
-        local card = Instance.new("Frame", overlay)
-        card.Size = UDim2.new(0, 280, 0, 160)
-        card.Position = UDim2.new(0.5, -140, 0.5, -80)
-        card.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-        card.ZIndex = 10001
-        corner(card, 16)
-        stroke(card, Color3.fromRGB(255, 180, 50), 2, 0)
-        
-        -- Gradient
-        local grad = Instance.new("UIGradient", card)
-        grad.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 30, 42)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(18, 18, 28))
-        })
-        grad.Rotation = 135
-        
-        -- Accent bar
-        local accent = Instance.new("Frame", card)
-        accent.Size = UDim2.new(1, 0, 0, 2)
-        accent.BackgroundColor3 = Color3.fromRGB(255, 180, 50)
-        accent.ZIndex = 10002
-        corner(accent, 1)
-        
-        -- Icon rotate
-        local rotateIcon = Instance.new("TextLabel", card)
-        rotateIcon.Size = UDim2.new(0, 50, 0, 50)
-        rotateIcon.Position = UDim2.new(0.5, -25, 0, 15)
-        rotateIcon.BackgroundTransparency = 1
-        rotateIcon.Text = "📱"
-        rotateIcon.TextSize = 36
-        rotateIcon.ZIndex = 10002
-        
-        -- Title
-        local title = Instance.new("TextLabel", card)
-        title.Size = UDim2.new(1, -20, 0, 26)
-        title.Position = UDim2.new(0, 10, 0, 65)
-        title.BackgroundTransparency = 1
-        title.Text = "Rotate Your Device"
-        title.TextColor3 = Color3.new(1, 1, 1)
-        title.Font = Enum.Font.GothamBlack
-        title.TextSize = 16
-        title.ZIndex = 10002
-        
-        -- Message
-        local msg = Instance.new("TextLabel", card)
-        msg.Size = UDim2.new(1, -20, 0, 36)
-        msg.Position = UDim2.new(0, 10, 0, 92)
-        msg.BackgroundTransparency = 1
-        msg.Text = "Phone ID Viewer hanya berjalan\ndalam mode Portrait/Vertikal\n\nSilakan putar HP kamu"
-        msg.TextColor3 = Color3.fromRGB(180, 180, 190)
-        msg.Font = Enum.Font.Gotham
-        msg.TextSize = 11
-        msg.TextWrapped = true
-        msg.TextXAlignment = Enum.TextXAlignment.Center
-        msg.ZIndex = 10002
-        msg.LineHeight = 1.2
-        
-        -- Close button (meskipun tidak bisa buka phone)
-        local closeBtn = Instance.new("TextButton", card)
-        closeBtn.Size = UDim2.new(0, 100, 0, 30)
-        closeBtn.Position = UDim2.new(0.5, -50, 1, -40)
-        closeBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-        closeBtn.Text = "OK"
-        closeBtn.TextColor3 = Color3.new(1, 1, 1)
-        closeBtn.Font = Enum.Font.GothamBold
-        closeBtn.TextSize = 12
-        closeBtn.AutoButtonColor = false
-        closeBtn.ZIndex = 10002
-        corner(closeBtn, 8)
-        pressFX(closeBtn)
-        closeBtn.MouseButton1Click:Connect(function()
-            warningGui:Destroy()
-        end)
-        
-        -- Auto-hilang saat HP diputar ke portrait
-        task.spawn(function()
-            while warningGui.Parent do
-                if not isLandscape() then
-                    warningGui:Destroy()
-                    -- Auto-buka phone lagi
-                    task.wait(0.3)
-                    if not phone.Visible then
-                        openPhone()
-                    end
-                    break
-                end
-                task.wait(0.5)
-            end
-        end)
-        
-        return true -- Landscape detected
+-- Fungsi cek apakah landscape
+local function isLandscapeMode()
+    local size = getScreenSize()
+    return size.X > size.Y
+end
+
+-- Fungsi untuk menampilkan peringatan landscape
+local function showLandscapeWarning()
+    -- Sembunyikan phone dulu
+    if phone.Visible then
+        closePhone()
     end
     
-    return false -- Portrait mode
+    -- Buat warning GUI
+    local warningGui = Instance.new("ScreenGui")
+    warningGui.Name = "LandscapeWarning"
+    warningGui.ResetOnSpawn = false
+    warningGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    warningGui.DisplayOrder = 9999
+    
+    pcall(function() warningGui.Parent = getGuiParent() end)
+    if not warningGui.Parent then warningGui.Parent = game:GetService("CoreGui") end
+    
+    -- Overlay gelap
+    local overlay = Instance.new("Frame", warningGui)
+    overlay.Size = UDim2.new(1, 0, 1, 0)
+    overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    overlay.BackgroundTransparency = 0.7
+    overlay.ZIndex = 10000
+    
+    -- Card peringatan
+    local card = Instance.new("Frame", overlay)
+    card.Size = UDim2.new(0, 280, 0, 200)
+    card.Position = UDim2.new(0.5, -140, 0.5, -100)
+    card.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    card.ZIndex = 10001
+    corner(card, 16)
+    stroke(card, Color3.fromRGB(255, 200, 50), 2, 0)
+    
+    -- Icon rotate
+    local iconFrame = Instance.new("Frame", card)
+    iconFrame.Size = UDim2.new(0, 60, 0, 60)
+    iconFrame.Position = UDim2.new(0.5, -30, 0, 20)
+    iconFrame.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+    iconFrame.BackgroundTransparency = 0.85
+    iconFrame.ZIndex = 10002
+    corner(iconFrame, 100)
+    
+    -- Rotate icon (phone shape)
+    local phoneIcon = Instance.new("Frame", iconFrame)
+    phoneIcon.Size = UDim2.new(0, 24, 0, 40)
+    phoneIcon.Position = UDim2.new(0.5, -12, 0.5, -20)
+    phoneIcon.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+    phoneIcon.ZIndex = 10003
+    corner(phoneIcon, 6)
+    
+    -- Screen
+    local screen = Instance.new("Frame", phoneIcon)
+    screen.Size = UDim2.new(0, 16, 0, 28)
+    screen.Position = UDim2.new(0.5, -8, 0.5, -14)
+    screen.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    screen.ZIndex = 10004
+    corner(screen, 3)
+    
+    -- Rotate arrow
+    local arrow = Instance.new("Frame", iconFrame)
+    arrow.Size = UDim2.new(0, 20, 0, 3)
+    arrow.Position = UDim2.new(0.5, 14, 0.5, -1)
+    arrow.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+    arrow.Rotation = 90
+    arrow.ZIndex = 10003
+    corner(arrow, 2)
+    
+    local arrowTip = Instance.new("Frame", iconFrame)
+    arrowTip.Size = UDim2.new(0, 6, 0, 6)
+    arrowTip.Position = UDim2.new(0.5, 20, 0.5, -3)
+    arrowTip.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+    arrowTip.Rotation = 45
+    arrowTip.ZIndex = 10003
+    corner(arrowTip, 2)
+    
+    -- Title
+    local title = Instance.new("TextLabel", card)
+    title.Size = UDim2.new(1, -20, 0, 26)
+    title.Position = UDim2.new(0, 10, 0, 85)
+    title.BackgroundTransparency = 1
+    title.Text = "PUTAR HP KAMU"
+    title.TextColor3 = Color3.fromRGB(255, 200, 50)
+    title.Font = Enum.Font.GothamBlack
+    title.TextSize = 16
+    title.ZIndex = 10002
+    
+    -- Message
+    local msg = Instance.new("TextLabel", card)
+    msg.Size = UDim2.new(1, -20, 0, 40)
+    msg.Position = UDim2.new(0, 10, 0, 112)
+    msg.BackgroundTransparency = 1
+    msg.Text = "Phone ID Viewer hanya berjalan\ndalam mode POTRET / VERTIKAL\n\nSilakan putar HP kamu"
+    msg.TextColor3 = Color3.fromRGB(180, 180, 190)
+    msg.Font = Enum.Font.Gotham
+    msg.TextSize = 11
+    msg.TextWrapped = true
+    msg.TextXAlignment = Enum.TextXAlignment.Center
+    msg.ZIndex = 10002
+    msg.LineHeight = 1.2
+    
+    -- Auto-check: jika sudah portrait, hapus warning
+    task.spawn(function()
+        while warningGui.Parent do
+            task.wait(0.5)
+            
+            if not isLandscapeMode() then
+                -- HP sudah diputar ke portrait
+                warningGui:Destroy()
+                
+                -- Auto-buka phone
+                task.wait(0.3)
+                if not phone.Visible then
+                    openPhone()
+                end
+                showDynamicNotification("Phone ready!", T.Green)
+                break
+            end
+        end
+    end)
+    
+    return warningGui
 end
 
--- ================= MONITOR ORIENTATION =================
+-- ================= MONITOR ORIENTASI =================
 task.spawn(function()
+    task.wait(1) -- Tunggu 1 detik setelah script load
+    
+    -- Cek orientasi awal
+    if isLandscapeMode() then
+        showLandscapeWarning()
+    end
+    
+    -- Monitor terus menerus
     while true do
-        task.wait(1) -- Cek setiap detik
+        task.wait(1)
         
-        if phone.Visible then
-            if isLandscape() then
-                -- Force portrait
-                forcePortraitMode()
+        if isLandscapeMode() then
+            if phone.Visible then
+                closePhone()
+            end
+            
+            -- Cek apakah warning sudah ada
+            local existingWarning = nil
+            pcall(function()
+                local parent = getGuiParent() or game:GetService("CoreGui")
+                existingWarning = parent:FindFirstChild("LandscapeWarning")
+            end)
+            
+            if not existingWarning then
+                showLandscapeWarning()
+            end
+        else
+            -- Portrait mode - hapus warning jika ada
+            pcall(function()
+                local parent = getGuiParent() or game:GetService("CoreGui")
+                local warning = parent:FindFirstChild("LandscapeWarning")
+                if warning then
+                    warning:Destroy()
+                end
+            end)
+            
+            -- Buka phone jika belum terbuka
+            if not phone.Visible and phoneTool and toolEquipped then
+                task.wait(0.3)
+                openPhone()
             end
         end
     end
 end)
 
--- ================= PREVENT PHONE OPEN IN LANDSCAPE =================
--- Override fungsi openPhone
+-- ================= OVERRIDE OPEN PHONE =================
 local originalOpenPhone = openPhone
 openPhone = function()
-    if isLandscape() then
-        forcePortraitMode()
+    if isLandscapeMode() then
+        showLandscapeWarning()
         return
     end
     originalOpenPhone()
 end
 
--- ================= AUTO-ROTATE PHONE SIZE =================
--- Update fungsi applyPhoneOrientationSize
-local originalApplyPhoneOrientationSize = applyPhoneOrientationSize
+-- ================= FORCE PORTRAIT SIZE =================
+local originalApplySize = applyPhoneOrientationSize
 applyPhoneOrientationSize = function()
-    local cam = Workspace.CurrentCamera
-    if not cam then return end
-    local vp = cam.ViewportSize
-    if vp.X <= 0 or vp.Y <= 0 then return end
-    
-    -- SELALU pakai portrait size
-    isLandscapeMode = false
+    -- Selalu pakai portrait size
     PHONE_SIZE = PHONE_SIZE_PORTRAIT
     phone.Position = UDim2.new(0.5, 0, 0.52, 0)
     
     if phone.Visible then
-        tween(phone, {Size = PHONE_SIZE, Position = phone.Position}, 0.3, Enum.EasingStyle.Quart)
+        phone.Size = PHONE_SIZE
     end
 end
 
-print("[Phone] Auto-rotate system ready! Forced to Portrait mode.")
+print("[Phone ID Viewer] Auto-Portrait mode active!")
 
 -- ================= SCREEN AREA =================
 local sa=Instance.new("Frame",phone);sa.Size=UDim2.new(1,-16,1,-16);sa.Position=UDim2.new(0,8,0,8);sa.BackgroundColor3=T.BG;sa.BorderSizePixel=0;sa.ClipsDescendants=true;corner(sa,30)

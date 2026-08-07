@@ -459,188 +459,215 @@ end
 local function isPortrait()local cam=Workspace.CurrentCamera;if not cam then return true end;local vp=cam.ViewportSize;return vp.Y>=vp.X end
 local function getGridIconSize()return isPortrait()and UDim2.new(0,72,0,86)or UDim2.new(0,68,0,82)end
 
--- ================= AUTO ROTATE SYSTEM (FORCE PORTRAIT) =================
--- Taruh di bagian atas script (setelah GUI ROOT)
+-- ================= FORCE PORTRAIT MODE =================
+-- Taruh di bagian atas script (setelah GUI ROOT dibuat)
 
--- Deteksi orientasi layar
-local function isLandscape()
+-- Fungsi untuk mendapatkan ukuran layar
+local function getScreenSize()
     local cam = Workspace.CurrentCamera
-    if not cam then return false end
-    local vp = cam.ViewportSize
-    return vp.X > vp.Y
+    if not cam then return Vector2.new(1920, 1080) end
+    return cam.ViewportSize
 end
 
--- Force ke portrait mode
-local function forcePortraitMode()
-    -- Cek apakah phone sedang visible
-    if not phone.Visible then return end
-    
-    -- Jika landscape, jangan tampilkan phone / beri peringatan
-    if isLandscape() then
-        -- Sembunyikan phone
-        if phone.Visible then
-            closePhone()
-        end
-        
-        -- Tampilkan pesan
-        local warningGui = Instance.new("ScreenGui")
-        warningGui.Name = "PhoneRotateWarning"
-        warningGui.ResetOnSpawn = false
-        warningGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        warningGui.DisplayOrder = 9999
-        
-        pcall(function() warningGui.Parent = getGuiParent() end)
-        if not warningGui.Parent then warningGui.Parent = game:GetService("CoreGui") end
-        
-        -- Background overlay
-        local overlay = Instance.new("Frame", warningGui)
-        overlay.Size = UDim2.new(1, 0, 1, 0)
-        overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-        overlay.BackgroundTransparency = 0.6
-        overlay.ZIndex = 10000
-        
-        -- Card tengah
-        local card = Instance.new("Frame", overlay)
-        card.Size = UDim2.new(0, 280, 0, 160)
-        card.Position = UDim2.new(0.5, -140, 0.5, -80)
-        card.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-        card.ZIndex = 10001
-        corner(card, 16)
-        stroke(card, Color3.fromRGB(255, 180, 50), 2, 0)
-        
-        -- Gradient
-        local grad = Instance.new("UIGradient", card)
-        grad.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 30, 42)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(18, 18, 28))
-        })
-        grad.Rotation = 135
-        
-        -- Accent bar
-        local accent = Instance.new("Frame", card)
-        accent.Size = UDim2.new(1, 0, 0, 2)
-        accent.BackgroundColor3 = Color3.fromRGB(255, 180, 50)
-        accent.ZIndex = 10002
-        corner(accent, 1)
-        
-        -- Icon rotate
-        local rotateIcon = Instance.new("TextLabel", card)
-        rotateIcon.Size = UDim2.new(0, 50, 0, 50)
-        rotateIcon.Position = UDim2.new(0.5, -25, 0, 15)
-        rotateIcon.BackgroundTransparency = 1
-        rotateIcon.Text = "📱"
-        rotateIcon.TextSize = 36
-        rotateIcon.ZIndex = 10002
-        
-        -- Title
-        local title = Instance.new("TextLabel", card)
-        title.Size = UDim2.new(1, -20, 0, 26)
-        title.Position = UDim2.new(0, 10, 0, 65)
-        title.BackgroundTransparency = 1
-        title.Text = "Rotate Your Device"
-        title.TextColor3 = Color3.new(1, 1, 1)
-        title.Font = Enum.Font.GothamBlack
-        title.TextSize = 16
-        title.ZIndex = 10002
-        
-        -- Message
-        local msg = Instance.new("TextLabel", card)
-        msg.Size = UDim2.new(1, -20, 0, 36)
-        msg.Position = UDim2.new(0, 10, 0, 92)
-        msg.BackgroundTransparency = 1
-        msg.Text = "Phone ID Viewer hanya berjalan\ndalam mode Portrait/Vertikal\n\nSilakan putar HP kamu"
-        msg.TextColor3 = Color3.fromRGB(180, 180, 190)
-        msg.Font = Enum.Font.Gotham
-        msg.TextSize = 11
-        msg.TextWrapped = true
-        msg.TextXAlignment = Enum.TextXAlignment.Center
-        msg.ZIndex = 10002
-        msg.LineHeight = 1.2
-        
-        -- Close button (meskipun tidak bisa buka phone)
-        local closeBtn = Instance.new("TextButton", card)
-        closeBtn.Size = UDim2.new(0, 100, 0, 30)
-        closeBtn.Position = UDim2.new(0.5, -50, 1, -40)
-        closeBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-        closeBtn.Text = "OK"
-        closeBtn.TextColor3 = Color3.new(1, 1, 1)
-        closeBtn.Font = Enum.Font.GothamBold
-        closeBtn.TextSize = 12
-        closeBtn.AutoButtonColor = false
-        closeBtn.ZIndex = 10002
-        corner(closeBtn, 8)
-        pressFX(closeBtn)
-        closeBtn.MouseButton1Click:Connect(function()
-            warningGui:Destroy()
-        end)
-        
-        -- Auto-hilang saat HP diputar ke portrait
-        task.spawn(function()
-            while warningGui.Parent do
-                if not isLandscape() then
-                    warningGui:Destroy()
-                    -- Auto-buka phone lagi
-                    task.wait(0.3)
-                    if not phone.Visible then
-                        openPhone()
-                    end
-                    break
-                end
-                task.wait(0.5)
-            end
-        end)
-        
-        return true -- Landscape detected
+-- Fungsi cek apakah landscape
+local function isLandscapeMode()
+    local size = getScreenSize()
+    return size.X > size.Y
+end
+
+-- Fungsi untuk menampilkan peringatan landscape
+local function showLandscapeWarning()
+    -- Sembunyikan phone dulu
+    if phone.Visible then
+        closePhone()
     end
     
-    return false -- Portrait mode
+    -- Buat warning GUI
+    local warningGui = Instance.new("ScreenGui")
+    warningGui.Name = "LandscapeWarning"
+    warningGui.ResetOnSpawn = false
+    warningGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    warningGui.DisplayOrder = 9999
+    
+    pcall(function() warningGui.Parent = getGuiParent() end)
+    if not warningGui.Parent then warningGui.Parent = game:GetService("CoreGui") end
+    
+    -- Overlay gelap
+    local overlay = Instance.new("Frame", warningGui)
+    overlay.Size = UDim2.new(1, 0, 1, 0)
+    overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    overlay.BackgroundTransparency = 0.7
+    overlay.ZIndex = 10000
+    
+    -- Card peringatan
+    local card = Instance.new("Frame", overlay)
+    card.Size = UDim2.new(0, 280, 0, 200)
+    card.Position = UDim2.new(0.5, -140, 0.5, -100)
+    card.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    card.ZIndex = 10001
+    corner(card, 16)
+    stroke(card, Color3.fromRGB(255, 200, 50), 2, 0)
+    
+    -- Icon rotate
+    local iconFrame = Instance.new("Frame", card)
+    iconFrame.Size = UDim2.new(0, 60, 0, 60)
+    iconFrame.Position = UDim2.new(0.5, -30, 0, 20)
+    iconFrame.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+    iconFrame.BackgroundTransparency = 0.85
+    iconFrame.ZIndex = 10002
+    corner(iconFrame, 100)
+    
+    -- Rotate icon (phone shape)
+    local phoneIcon = Instance.new("Frame", iconFrame)
+    phoneIcon.Size = UDim2.new(0, 24, 0, 40)
+    phoneIcon.Position = UDim2.new(0.5, -12, 0.5, -20)
+    phoneIcon.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+    phoneIcon.ZIndex = 10003
+    corner(phoneIcon, 6)
+    
+    -- Screen
+    local screen = Instance.new("Frame", phoneIcon)
+    screen.Size = UDim2.new(0, 16, 0, 28)
+    screen.Position = UDim2.new(0.5, -8, 0.5, -14)
+    screen.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    screen.ZIndex = 10004
+    corner(screen, 3)
+    
+    -- Rotate arrow
+    local arrow = Instance.new("Frame", iconFrame)
+    arrow.Size = UDim2.new(0, 20, 0, 3)
+    arrow.Position = UDim2.new(0.5, 14, 0.5, -1)
+    arrow.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+    arrow.Rotation = 90
+    arrow.ZIndex = 10003
+    corner(arrow, 2)
+    
+    local arrowTip = Instance.new("Frame", iconFrame)
+    arrowTip.Size = UDim2.new(0, 6, 0, 6)
+    arrowTip.Position = UDim2.new(0.5, 20, 0.5, -3)
+    arrowTip.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+    arrowTip.Rotation = 45
+    arrowTip.ZIndex = 10003
+    corner(arrowTip, 2)
+    
+    -- Title
+    local title = Instance.new("TextLabel", card)
+    title.Size = UDim2.new(1, -20, 0, 26)
+    title.Position = UDim2.new(0, 10, 0, 85)
+    title.BackgroundTransparency = 1
+    title.Text = "PUTAR HP KAMU"
+    title.TextColor3 = Color3.fromRGB(255, 200, 50)
+    title.Font = Enum.Font.GothamBlack
+    title.TextSize = 16
+    title.ZIndex = 10002
+    
+    -- Message
+    local msg = Instance.new("TextLabel", card)
+    msg.Size = UDim2.new(1, -20, 0, 40)
+    msg.Position = UDim2.new(0, 10, 0, 112)
+    msg.BackgroundTransparency = 1
+    msg.Text = "Phone ID Viewer hanya berjalan\ndalam mode POTRET / VERTIKAL\n\nSilakan putar HP kamu"
+    msg.TextColor3 = Color3.fromRGB(180, 180, 190)
+    msg.Font = Enum.Font.Gotham
+    msg.TextSize = 11
+    msg.TextWrapped = true
+    msg.TextXAlignment = Enum.TextXAlignment.Center
+    msg.ZIndex = 10002
+    msg.LineHeight = 1.2
+    
+    -- Auto-check: jika sudah portrait, hapus warning
+    task.spawn(function()
+        while warningGui.Parent do
+            task.wait(0.5)
+            
+            if not isLandscapeMode() then
+                -- HP sudah diputar ke portrait
+                warningGui:Destroy()
+                
+                -- Auto-buka phone
+                task.wait(0.3)
+                if not phone.Visible then
+                    openPhone()
+                end
+                showDynamicNotification("Phone ready!", T.Green)
+                break
+            end
+        end
+    end)
+    
+    return warningGui
 end
 
--- ================= MONITOR ORIENTATION =================
+-- ================= MONITOR ORIENTASI =================
 task.spawn(function()
+    task.wait(1) -- Tunggu 1 detik setelah script load
+    
+    -- Cek orientasi awal
+    if isLandscapeMode() then
+        showLandscapeWarning()
+    end
+    
+    -- Monitor terus menerus
     while true do
-        task.wait(1) -- Cek setiap detik
+        task.wait(1)
         
-        if phone.Visible then
-            if isLandscape() then
-                -- Force portrait
-                forcePortraitMode()
+        if isLandscapeMode() then
+            if phone.Visible then
+                closePhone()
+            end
+            
+            -- Cek apakah warning sudah ada
+            local existingWarning = nil
+            pcall(function()
+                local parent = getGuiParent() or game:GetService("CoreGui")
+                existingWarning = parent:FindFirstChild("LandscapeWarning")
+            end)
+            
+            if not existingWarning then
+                showLandscapeWarning()
+            end
+        else
+            -- Portrait mode - hapus warning jika ada
+            pcall(function()
+                local parent = getGuiParent() or game:GetService("CoreGui")
+                local warning = parent:FindFirstChild("LandscapeWarning")
+                if warning then
+                    warning:Destroy()
+                end
+            end)
+            
+            -- Buka phone jika belum terbuka
+            if not phone.Visible and phoneTool and toolEquipped then
+                task.wait(0.3)
+                openPhone()
             end
         end
     end
 end)
 
--- ================= PREVENT PHONE OPEN IN LANDSCAPE =================
--- Override fungsi openPhone
+-- ================= OVERRIDE OPEN PHONE =================
 local originalOpenPhone = openPhone
 openPhone = function()
-    if isLandscape() then
-        forcePortraitMode()
+    if isLandscapeMode() then
+        showLandscapeWarning()
         return
     end
     originalOpenPhone()
 end
 
--- ================= AUTO-ROTATE PHONE SIZE =================
--- Update fungsi applyPhoneOrientationSize
-local originalApplyPhoneOrientationSize = applyPhoneOrientationSize
+-- ================= FORCE PORTRAIT SIZE =================
+local originalApplySize = applyPhoneOrientationSize
 applyPhoneOrientationSize = function()
-    local cam = Workspace.CurrentCamera
-    if not cam then return end
-    local vp = cam.ViewportSize
-    if vp.X <= 0 or vp.Y <= 0 then return end
-    
-    -- SELALU pakai portrait size
-    isLandscapeMode = false
+    -- Selalu pakai portrait size
     PHONE_SIZE = PHONE_SIZE_PORTRAIT
     phone.Position = UDim2.new(0.5, 0, 0.52, 0)
     
     if phone.Visible then
-        tween(phone, {Size = PHONE_SIZE, Position = phone.Position}, 0.3, Enum.EasingStyle.Quart)
+        phone.Size = PHONE_SIZE
     end
 end
 
-print("[Phone] Auto-rotate system ready! Forced to Portrait mode.")
+print("[Phone ID Viewer] Auto-Portrait mode active!")
 
 -- ================= SCREEN AREA =================
 local sa=Instance.new("Frame",phone);sa.Size=UDim2.new(1,-16,1,-16);sa.Position=UDim2.new(0,8,0,8);sa.BackgroundColor3=T.BG;sa.BorderSizePixel=0;sa.ClipsDescendants=true;corner(sa,30)
@@ -6556,224 +6583,6 @@ local function setupTool() phoneTool=ensureTool();if phoneTool then phoneTool.Eq
 setupTool()
 LocalPlayer.CharacterAdded:Connect(function()phoneTool=nil;task.wait(0.5);setupTool()end)
 
--- ==================== WELCOME SCREEN (BAHASA INDONESIA - HITAM PUTIH) ====================
--- Taruh di bagian akhir script (sebelum print terakhir)
-
-task.spawn(function()
-    task.wait(2) -- Tunggu 2 detik setelah semua UI siap
-    
-    -- Buat ScreenGui
-    local welcomeGui = Instance.new("ScreenGui")
-    welcomeGui.Name = "PhoneWelcome"
-    welcomeGui.ResetOnSpawn = false
-    welcomeGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    welcomeGui.DisplayOrder = 9999
-    
-    pcall(function() welcomeGui.Parent = getGuiParent() end)
-    if not welcomeGui.Parent then welcomeGui.Parent = game:GetService("CoreGui") end
-    
-    -- Background overlay (semi-transparan hitam)
-    local overlay = Instance.new("Frame", welcomeGui)
-    overlay.Size = UDim2.new(1, 0, 1, 0)
-    overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    overlay.BackgroundTransparency = 0.5
-    overlay.ZIndex = 10000
-    overlay.Active = true -- Menangkap semua input
-    
-    -- Card utama di tengah
-    local card = Instance.new("Frame", overlay)
-    card.Size = UDim2.new(0, 340, 0, 460)
-    card.Position = UDim2.new(0.5, -170, 0.5, -230)
-    card.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    card.ZIndex = 10001
-    corner(card, 16)
-    stroke(card, Color3.fromRGB(0, 0, 0), 2.5, 0)
-    
-    -- ==================== HEADER ====================
-    -- Garis hitam atas
-    local topLine = Instance.new("Frame", card)
-    topLine.Size = UDim2.new(1, 0, 0, 4)
-    topLine.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    topLine.ZIndex = 10002
-    
-    -- Logo area
-    local logoFrame = Instance.new("Frame", card)
-    logoFrame.Size = UDim2.new(0, 70, 0, 70)
-    logoFrame.Position = UDim2.new(0.5, -35, 0, 24)
-    logoFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    logoFrame.ZIndex = 10002
-    corner(logoFrame, 100)
-    
-    local logoText = Instance.new("TextLabel", logoFrame)
-    logoText.Size = UDim2.new(1, 0, 1, 0)
-    logoText.BackgroundTransparency = 1
-    logoText.Text = "ID"
-    logoText.TextColor3 = Color3.fromRGB(255, 255, 255)
-    logoText.Font = Enum.Font.GothamBlack
-    logoText.TextSize = 26
-    logoText.ZIndex = 10003
-    
-    -- Title
-    local title = Instance.new("TextLabel", card)
-    title.Size = UDim2.new(1, -20, 0, 30)
-    title.Position = UDim2.new(0, 10, 0, 100)
-    title.BackgroundTransparency = 1
-    title.Text = "Phone ID Viewer"
-    title.TextColor3 = Color3.fromRGB(0, 0, 0)
-    title.Font = Enum.Font.GothamBlack
-    title.TextSize = 24
-    title.ZIndex = 10002
-    
-    -- Subtitle
-    local subtitle = Instance.new("TextLabel", card)
-    subtitle.Size = UDim2.new(1, -20, 0, 20)
-    subtitle.Position = UDim2.new(0, 10, 0, 130)
-    subtitle.BackgroundTransparency = 1
-    subtitle.Text = "Script Clone & ID Viewer"
-    subtitle.TextColor3 = Color3.fromRGB(100, 100, 100)
-    subtitle.Font = Enum.Font.Gotham
-    subtitle.TextSize = 11
-    subtitle.ZIndex = 10002
-    
-    -- Version & Author
-    local versionText = Instance.new("TextLabel", card)
-    versionText.Size = UDim2.new(1, -20, 0, 18)
-    versionText.Position = UDim2.new(0, 10, 0, 152)
-    versionText.BackgroundTransparency = 1
-    versionText.Text = "v10.2  |  by alfread"
-    versionText.TextColor3 = Color3.fromRGB(140, 140, 140)
-    versionText.Font = Enum.Font.GothamBold
-    versionText.TextSize = 10
-    versionText.ZIndex = 10002
-    
-    -- ==================== DIVIDER ====================
-    local divider1 = Instance.new("Frame", card)
-    divider1.Size = UDim2.new(1, -40, 0, 2)
-    divider1.Position = UDim2.new(0, 20, 0, 180)
-    divider1.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    divider1.BackgroundTransparency = 0.85
-    divider1.ZIndex = 10002
-    
-    -- ==================== PANDUAN PENGGUNAAN ====================
-    local guideTitle = Instance.new("TextLabel", card)
-    guideTitle.Size = UDim2.new(1, -40, 0, 22)
-    guideTitle.Position = UDim2.new(0, 20, 0, 190)
-    guideTitle.BackgroundTransparency = 1
-    guideTitle.Text = "PANDUAN PENGGUNAAN"
-    guideTitle.TextColor3 = Color3.fromRGB(0, 0, 0)
-    guideTitle.Font = Enum.Font.GothamBlack
-    guideTitle.TextSize = 12
-    guideTitle.TextXAlignment = Enum.TextXAlignment.Left
-    guideTitle.ZIndex = 10002
-    
-    -- Instruksi
-    local instructions = {
-        {num = "1", text = "Tools ada di Backpack kamu", sub = "Cari tools 'Phone' lalu klik untuk equip"},
-        {num = "2", text = "Beli command di map", sub = "Gunakan command 're', 'size', dan lainnya"},
-        {num = "3", text = "Password default: 2006", sub = "Bisa diganti di Settings > Change Passcode"},
-        {num = "4", text = "Pilih Player di aplikasi Players", sub = "Lalu lihat item, clone, atau outfit mereka"},
-        {num = "5", text = "Simpan outfit untuk respawn", sub = "Di aplikasi Reset, pilih outfit & save"},
-        {num = "6", text = "Gunakan aplikasi Commands", sub = "Untuk re, rejoin, sit, size, sync, dan FX"},
-        {num = "7", text = "Favoritkan bundle & emote", sub = "Bundle untuk instant items, Emote untuk animasi"}
-    }
-    
-    for i, instr in ipairs(instructions) do
-        -- Nomor dalam lingkaran hitam
-        local numCircle = Instance.new("Frame", card)
-        numCircle.Size = UDim2.new(0, 24, 0, 24)
-        numCircle.Position = UDim2.new(0, 18, 0, 218 + (i-1) * 32)
-        numCircle.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-        numCircle.ZIndex = 10002
-        corner(numCircle, 100)
-        
-        local numText = Instance.new("TextLabel", numCircle)
-        numText.Size = UDim2.new(1, 0, 1, 0)
-        numText.BackgroundTransparency = 1
-        numText.Text = instr.num
-        numText.TextColor3 = Color3.fromRGB(255, 255, 255)
-        numText.Font = Enum.Font.GothamBlack
-        numText.TextSize = 11
-        numText.ZIndex = 10003
-        
-        -- Teks instruksi
-        local instrText = Instance.new("TextLabel", card)
-        instrText.Size = UDim2.new(1, -56, 0, 16)
-        instrText.Position = UDim2.new(0, 50, 0, 216 + (i-1) * 32)
-        instrText.BackgroundTransparency = 1
-        instrText.Text = instr.text
-        instrText.TextColor3 = Color3.fromRGB(0, 0, 0)
-        instrText.Font = Enum.Font.GothamBold
-        instrText.TextSize = 10
-        instrText.TextXAlignment = Enum.TextXAlignment.Left
-        instrText.ZIndex = 10002
-        
-        -- Sub teks
-        local subText = Instance.new("TextLabel", card)
-        subText.Size = UDim2.new(1, -56, 0, 14)
-        subText.Position = UDim2.new(0, 50, 0, 232 + (i-1) * 32)
-        subText.BackgroundTransparency = 1
-        subText.Text = instr.sub
-        subText.TextColor3 = Color3.fromRGB(140, 140, 140)
-        subText.Font = Enum.Font.Gotham
-        subText.TextSize = 8
-        subText.TextXAlignment = Enum.TextXAlignment.Left
-        subText.ZIndex = 10002
-    end
-    
-    -- ==================== FOOTER ====================
-    local divider2 = Instance.new("Frame", card)
-    divider2.Size = UDim2.new(1, -40, 0, 2)
-    divider2.Position = UDim2.new(0, 20, 0, 428)
-    divider2.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    divider2.BackgroundTransparency = 0.85
-    divider2.ZIndex = 10002
-    
-    -- Tombol Konfirmasi
-    local confirmBtn = Instance.new("TextButton", card)
-    confirmBtn.Size = UDim2.new(1, -40, 0, 44)
-    confirmBtn.Position = UDim2.new(0, 20, 1, -56)
-    confirmBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    confirmBtn.Text = "MENGERTI & MULAI"
-    confirmBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    confirmBtn.Font = Enum.Font.GothamBlack
-    confirmBtn.TextSize = 14
-    confirmBtn.AutoButtonColor = false
-    confirmBtn.ZIndex = 10002
-    corner(confirmBtn, 10)
-    
-    -- Hover effect
-    confirmBtn.MouseEnter:Connect(function()
-        tween(confirmBtn, {BackgroundColor3 = Color3.fromRGB(40, 40, 40)}, 0.15)
-    end)
-    confirmBtn.MouseLeave:Connect(function()
-        tween(confirmBtn, {BackgroundColor3 = Color3.fromRGB(0, 0, 0)}, 0.15)
-    end)
-    
-    -- Close function (HANYA via tombol ini)
-    local function closeWelcome()
-        -- Animasi fade out
-        tween(card, {Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1}, 0.3)
-        tween(overlay, {BackgroundTransparency = 1}, 0.3)
-        task.wait(0.3)
-        welcomeGui:Destroy()
-        
-        -- Notifikasi kecil
-        showDynamicNotification("Phone siap digunakan! Cek Backpack", Color3.fromRGB(0, 0, 0))
-    end
-    
-    confirmBtn.MouseButton1Click:Connect(closeWelcome)
-    
-    -- Animasi masuk (scale dari kecil)
-    card.Size = UDim2.new(0, 0, 0, 0)
-    card.Position = UDim2.new(0.5, 0, 0.5, 0)
-    tween(card, {Size = UDim2.new(0, 340, 0, 460)}, 0.4, Enum.EasingStyle.Back)
-    card.Position = UDim2.new(0.5, -170, 0.5, -230)
-    
-    -- Mencegah klik di luar untuk menutup
-    overlay.InputBegan:Connect(function(input)
-        -- Tidak melakukan apa-apa! Hanya tombol konfirmasi yang bisa menutup
-    end)
-end)
 
 -- ================= TELEGRAM NOTIFICATION =================
 task.spawn(function()
