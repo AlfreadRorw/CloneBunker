@@ -3663,915 +3663,661 @@ function createCommandCard(parent, order, cmd)
     return card
 end
 
--- SETTINGS (FIXED - NO ERRORS)
+-- ==================== SETTINGS APP (UPGRADED + ESP TOGGLE) ====================
 local function openSettingsApp()
-    -- ==================== DEVELOPER PROFILE CARD ====================
-    local devFrame = Instance.new("Frame", appContent)
-    devFrame.Size = UDim2.new(1, 0, 0, 230)
-    devFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-    devFrame.LayoutOrder = 0
-    corner(devFrame, 18)
-    
-    -- Premium gradient background
+
+    -- ── Helper: buat section header elegan ────────────────────────────────────
+    local function makeSection(parent, order, icon, title, desc)
+        local header = Instance.new("Frame", parent)
+        header.Size = UDim2.new(1, 0, 0, 48)
+        header.BackgroundTransparency = 1
+        header.LayoutOrder = order
+
+        local iconLbl = Instance.new("TextLabel", header)
+        iconLbl.Size = UDim2.new(0, 28, 0, 28)
+        iconLbl.Position = UDim2.new(0, 0, 0.5, -14)
+        iconLbl.BackgroundColor3 = T.Accent
+        iconLbl.BackgroundTransparency = 0.88
+        iconLbl.Text = icon
+        iconLbl.TextColor3 = T.Accent
+        iconLbl.Font = Enum.Font.GothamBold
+        iconLbl.TextSize = 14
+        iconLbl.ZIndex = 2
+        corner(iconLbl, 8)
+
+        local titleLbl = Instance.new("TextLabel", header)
+        titleLbl.Size = UDim2.new(1, -40, 0, 18)
+        titleLbl.Position = UDim2.new(0, 36, 0, 8)
+        titleLbl.BackgroundTransparency = 1
+        titleLbl.Text = title
+        titleLbl.TextColor3 = T.Text
+        titleLbl.Font = Enum.Font.GothamBlack
+        titleLbl.TextSize = 13
+        titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+        local descLbl = Instance.new("TextLabel", header)
+        descLbl.Size = UDim2.new(1, -40, 0, 14)
+        descLbl.Position = UDim2.new(0, 36, 0, 28)
+        descLbl.BackgroundTransparency = 1
+        descLbl.Text = desc
+        descLbl.TextColor3 = T.Text2
+        descLbl.Font = Enum.Font.Gotham
+        descLbl.TextSize = 9
+        descLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+        return header
+    end
+
+    -- ── Helper: card kontainer elegan ─────────────────────────────────────────
+    local function makeCard(parent, order, height)
+        local card = Instance.new("Frame", parent)
+        card.Size = UDim2.new(1, 0, 0, height)
+        card.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        card.BackgroundTransparency = 0.03
+        card.LayoutOrder = order
+        corner(card, 14)
+        stroke(card, Color3.fromRGB(230, 230, 238), 1, 0.2)
+        return card
+    end
+
+    -- ── Helper: row toggle di dalam card ──────────────────────────────────────
+    local function makeToggleRow(card, yPos, icon, title, subtitle, currentVal, callback)
+        local row = Instance.new("Frame", card)
+        row.Size = UDim2.new(1, -24, 0, 48)
+        row.Position = UDim2.new(0, 12, 0, yPos)
+        row.BackgroundTransparency = 1
+
+        local iconBg = Instance.new("Frame", row)
+        iconBg.Size = UDim2.new(0, 36, 0, 36)
+        iconBg.Position = UDim2.new(0, 0, 0.5, -18)
+        iconBg.BackgroundColor3 = T.Accent
+        iconBg.BackgroundTransparency = 0.85
+        corner(iconBg, 10)
+
+        local iconLbl = Instance.new("TextLabel", iconBg)
+        iconLbl.Size = UDim2.new(1, 0, 1, 0)
+        iconLbl.BackgroundTransparency = 1
+        iconLbl.Text = icon
+        iconLbl.TextColor3 = T.Accent
+        iconLbl.Font = Enum.Font.GothamBold
+        iconLbl.TextSize = 16
+
+        local titleLbl = Instance.new("TextLabel", row)
+        titleLbl.Size = UDim2.new(1, -100, 0, 18)
+        titleLbl.Position = UDim2.new(0, 44, 0, 6)
+        titleLbl.BackgroundTransparency = 1
+        titleLbl.Text = title
+        titleLbl.TextColor3 = T.Text
+        titleLbl.Font = Enum.Font.GothamBold
+        titleLbl.TextSize = 12
+        titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+        local subLbl = Instance.new("TextLabel", row)
+        subLbl.Size = UDim2.new(1, -100, 0, 14)
+        subLbl.Position = UDim2.new(0, 44, 0, 26)
+        subLbl.BackgroundTransparency = 1
+        subLbl.Text = subtitle
+        subLbl.TextColor3 = T.Text2
+        subLbl.Font = Enum.Font.Gotham
+        subLbl.TextSize = 9
+        subLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+        local toggle = buildToggle(row, currentVal, callback)
+        toggle.Position = UDim2.new(1, -52, 0.5, -13)
+
+        return row
+    end
+
+    -- ── Helper: divider tipis antar row ───────────────────────────────────────
+    local function makeDivider(parent, yPos)
+        local div = Instance.new("Frame", parent)
+        div.Size = UDim2.new(1, -56, 0, 1)
+        div.Position = UDim2.new(0, 44, 0, yPos)
+        div.BackgroundColor3 = Color3.fromRGB(220, 220, 230)
+        div.BackgroundTransparency = 0.5
+        div.BorderSizePixel = 0
+        return div
+    end
+
+    -- ================================================================
+    -- ① DEVELOPER PROFILE CARD (upgraded)
+    -- ================================================================
+    local devFrame = makeCard(appContent, 0, 220)
+    devFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 28)
+    devFrame.BackgroundTransparency = 0
+
     local devGradient = Instance.new("UIGradient", devFrame)
     devGradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 28, 42)),
-        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(22, 22, 35)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(16, 16, 26))
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 30, 48)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(14, 14, 22))
     })
-    devGradient.Rotation = 135
-    
-    -- Decorative accent line
-    local devAccent = Instance.new("Frame", devFrame)
-    devAccent.Size = UDim2.new(1, 0, 0, 3)
-    devAccent.BackgroundColor3 = Color3.fromRGB(80, 140, 255)
-    devAccent.ZIndex = 10
-    corner(devAccent, 2)
-    
-    -- Badge "DEVELOPER"
+    devGradient.Rotation = 145
+
+    -- Glow line atas
+    local glowLine = Instance.new("Frame", devFrame)
+    glowLine.Size = UDim2.new(1, 0, 0, 2)
+    glowLine.BackgroundColor3 = T.Accent
+    glowLine.BorderSizePixel = 0
+    glowLine.ZIndex = 5
+
+    local glowLineGrad = Instance.new("UIGradient", glowLine)
+    glowLineGrad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 30, 48)),
+        ColorSequenceKeypoint.new(0.3, Color3.fromRGB(80, 140, 255)),
+        ColorSequenceKeypoint.new(0.7, Color3.fromRGB(120, 80, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 30, 48))
+    })
+
+    -- Badge DEV
     local badgeFrame = Instance.new("Frame", devFrame)
-    badgeFrame.Size = UDim2.new(0, 90, 0, 22)
-    badgeFrame.Position = UDim2.new(0, 16, 0, 14)
-    badgeFrame.BackgroundColor3 = Color3.fromRGB(80, 140, 255)
-    badgeFrame.BackgroundTransparency = 0.85
+    badgeFrame.Size = UDim2.new(0, 80, 0, 20)
+    badgeFrame.Position = UDim2.new(0, 14, 0, 14)
+    badgeFrame.BackgroundColor3 = T.Accent
+    badgeFrame.BackgroundTransparency = 0.8
     badgeFrame.ZIndex = 5
-    corner(badgeFrame, 11)
-    stroke(badgeFrame, Color3.fromRGB(80, 140, 255), 1, 0.5)
-    
+    corner(badgeFrame, 10)
+    stroke(badgeFrame, T.Accent, 1, 0.5)
+
     local badgeText = Instance.new("TextLabel", badgeFrame)
-    badgeText.Size = UDim2.new(1, -8, 1, 0)
-    badgeText.Position = UDim2.new(0, 4, 0, 0)
+    badgeText.Size = UDim2.new(1, 0, 1, 0)
     badgeText.BackgroundTransparency = 1
-    badgeText.Text = "DEVELOPER"
-    badgeText.TextColor3 = Color3.fromRGB(150, 190, 255)
+    badgeText.Text = "✦ DEVELOPER"
+    badgeText.TextColor3 = Color3.fromRGB(160, 200, 255)
     badgeText.Font = Enum.Font.GothamBold
-    badgeText.TextSize = 9
-    badgeText.TextXAlignment = Enum.TextXAlignment.Center
+    badgeText.TextSize = 8
     badgeText.ZIndex = 6
-    
-    -- Avatar with premium ring
+
+    -- Avatar ring
     local avatarRing = Instance.new("Frame", devFrame)
-    avatarRing.Size = UDim2.new(0, 84, 0, 84)
-    avatarRing.Position = UDim2.new(0, 20, 0, 50)
-    avatarRing.BackgroundColor3 = Color3.fromRGB(80, 140, 255)
-    avatarRing.BackgroundTransparency = 0.7
+    avatarRing.Size = UDim2.new(0, 80, 0, 80)
+    avatarRing.Position = UDim2.new(0, 16, 0, 46)
+    avatarRing.BackgroundColor3 = T.Accent
+    avatarRing.BackgroundTransparency = 0.6
     avatarRing.ZIndex = 5
     corner(avatarRing, 100)
-    
+
     local av = Instance.new("ImageLabel", avatarRing)
-    av.Size = UDim2.new(0, 70, 0, 70)
-    av.Position = UDim2.new(0.5, -35, 0.5, -35)
-    av.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    av.Size = UDim2.new(0, 68, 0, 68)
+    av.Position = UDim2.new(0.5, -34, 0.5, -34)
+    av.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
     av.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
     av.ZIndex = 6
     corner(av, 100)
-    stroke(av, Color3.fromRGB(255, 255, 255), 2, 0.9)
-    
-    -- Online status indicator
+
     local onlineDot = Instance.new("Frame", avatarRing)
-    onlineDot.Size = UDim2.new(0, 16, 0, 16)
-    onlineDot.Position = UDim2.new(1, -12, 1, -12)
-    onlineDot.BackgroundColor3 = Color3.fromRGB(0, 220, 80)
+    onlineDot.Size = UDim2.new(0, 14, 0, 14)
+    onlineDot.Position = UDim2.new(1, -10, 1, -10)
+    onlineDot.BackgroundColor3 = Color3.fromRGB(0, 220, 100)
     onlineDot.ZIndex = 10
     corner(onlineDot, 100)
-    stroke(onlineDot, Color3.fromRGB(255, 255, 255), 2.5, 0)
-    
-    -- Name & Info
+    stroke(onlineDot, Color3.fromRGB(18, 18, 28), 2.5, 0)
+
+    -- Nama & info
     local nameLbl = Instance.new("TextLabel", devFrame)
-    nameLbl.Size = UDim2.new(1, -120, 0, 28)
-    nameLbl.Position = UDim2.new(0, 114, 0, 52)
+    nameLbl.Size = UDim2.new(1, -110, 0, 26)
+    nameLbl.Position = UDim2.new(0, 106, 0, 48)
     nameLbl.BackgroundTransparency = 1
     nameLbl.Text = "alfread"
     nameLbl.TextColor3 = Color3.new(1, 1, 1)
     nameLbl.Font = Enum.Font.GothamBlack
-    nameLbl.TextSize = 20
+    nameLbl.TextSize = 19
     nameLbl.TextXAlignment = Enum.TextXAlignment.Left
     nameLbl.ZIndex = 5
-    
-    -- Verified badge
-    local verifiedFrame = Instance.new("Frame", devFrame)
-    verifiedFrame.Size = UDim2.new(0, 16, 0, 16)
-    verifiedFrame.Position = UDim2.new(0, 112, 0, 78)
-    verifiedFrame.BackgroundColor3 = Color3.fromRGB(80, 160, 255)
-    verifiedFrame.ZIndex = 5
-    corner(verifiedFrame, 100)
-    
-    local checkMark = Instance.new("TextLabel", verifiedFrame)
-    checkMark.Size = UDim2.new(1, 0, 1, 0)
-    checkMark.BackgroundTransparency = 1
-    checkMark.Text = "V"
-    checkMark.TextColor3 = Color3.new(1, 1, 1)
-    checkMark.Font = Enum.Font.GothamBlack
-    checkMark.TextSize = 10
-    
-    local verifiedText = Instance.new("TextLabel", devFrame)
-    verifiedText.Size = UDim2.new(0, 100, 0, 18)
-    verifiedText.Position = UDim2.new(0, 132, 0, 78)
-    verifiedText.BackgroundTransparency = 1
-    verifiedText.Text = "Verified Creator"
-    verifiedText.TextColor3 = Color3.fromRGB(140, 185, 255)
-    verifiedText.Font = Enum.Font.Gotham
-    verifiedText.TextSize = 9
-    verifiedText.TextXAlignment = Enum.TextXAlignment.Left
-    verifiedText.ZIndex = 5
-    
+
+    local verifiedBadge = Instance.new("Frame", devFrame)
+    verifiedBadge.Size = UDim2.new(0, 90, 0, 16)
+    verifiedBadge.Position = UDim2.new(0, 106, 0, 78)
+    verifiedBadge.BackgroundTransparency = 1
+    verifiedBadge.ZIndex = 5
+
+    local checkIcon = Instance.new("TextLabel", verifiedBadge)
+    checkIcon.Size = UDim2.new(0, 16, 1, 0)
+    checkIcon.BackgroundColor3 = Color3.fromRGB(80, 160, 255)
+    checkIcon.Text = "✓"
+    checkIcon.TextColor3 = Color3.new(1, 1, 1)
+    checkIcon.Font = Enum.Font.GothamBlack
+    checkIcon.TextSize = 9
+    checkIcon.ZIndex = 6
+    corner(checkIcon, 100)
+
+    local verText = Instance.new("TextLabel", verifiedBadge)
+    verText.Size = UDim2.new(1, -20, 1, 0)
+    verText.Position = UDim2.new(0, 20, 0, 0)
+    verText.BackgroundTransparency = 1
+    verText.Text = "Verified Creator"
+    verText.TextColor3 = Color3.fromRGB(140, 190, 255)
+    verText.Font = Enum.Font.Gotham
+    verText.TextSize = 9
+    verText.TextXAlignment = Enum.TextXAlignment.Left
+    verText.ZIndex = 5
+
     local descLbl = Instance.new("TextLabel", devFrame)
-    descLbl.Size = UDim2.new(1, -120, 0, 40)
-    descLbl.Position = UDim2.new(0, 114, 0, 102)
+    descLbl.Size = UDim2.new(1, -110, 0, 36)
+    descLbl.Position = UDim2.new(0, 106, 0, 100)
     descLbl.BackgroundTransparency = 1
     descLbl.Text = "Creator of Phone ID Viewer\nAdvanced Roblox Scripting"
-    descLbl.TextColor3 = Color3.fromRGB(170, 170, 195)
+    descLbl.TextColor3 = Color3.fromRGB(160, 160, 185)
     descLbl.Font = Enum.Font.Gotham
     descLbl.TextSize = 10
     descLbl.TextXAlignment = Enum.TextXAlignment.Left
     descLbl.TextWrapped = true
     descLbl.ZIndex = 5
-    
-    -- Stats row
-    local statsFrame = Instance.new("Frame", devFrame)
-    statsFrame.Size = UDim2.new(1, -20, 0, 40)
-    statsFrame.Position = UDim2.new(0, 10, 0, 180)
-    statsFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    statsFrame.BackgroundTransparency = 0.94
-    statsFrame.ZIndex = 5
-    corner(statsFrame, 10)
-    
-    local stats = {
-        {value = "v10.2", label = "Version"},
-        {value = "2024", label = "Released"},
-        {value = "FE", label = "Secure"}
-    }
-    
-    for i, stat in ipairs(stats) do
-        local statFrame = Instance.new("Frame", statsFrame)
-        statFrame.Size = UDim2.new(1/3, -8, 1, 0)
-        statFrame.Position = UDim2.new((i-1)/3, 4, 0, 0)
-        statFrame.BackgroundTransparency = 1
-        
-        local statValue = Instance.new("TextLabel", statFrame)
-        statValue.Size = UDim2.new(1, 0, 0, 20)
-        statValue.Position = UDim2.new(0, 0, 0, 2)
-        statValue.BackgroundTransparency = 1
-        statValue.Text = stat.value
-        statValue.TextColor3 = Color3.new(1, 1, 1)
-        statValue.Font = Enum.Font.GothamBold
-        statValue.TextSize = 11
-        statValue.TextXAlignment = Enum.TextXAlignment.Center
-        
-        local statLabel = Instance.new("TextLabel", statFrame)
-        statLabel.Size = UDim2.new(1, 0, 0, 14)
-        statLabel.Position = UDim2.new(0, 0, 0, 22)
-        statLabel.BackgroundTransparency = 1
-        statLabel.Text = stat.label
-        statLabel.TextColor3 = Color3.fromRGB(140, 140, 165)
-        statLabel.Font = Enum.Font.Gotham
-        statLabel.TextSize = 8
-        statLabel.TextXAlignment = Enum.TextXAlignment.Center
+
+    -- Stats bar
+    local statsBar = Instance.new("Frame", devFrame)
+    statsBar.Size = UDim2.new(1, -20, 0, 38)
+    statsBar.Position = UDim2.new(0, 10, 0, 174)
+    statsBar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    statsBar.BackgroundTransparency = 0.93
+    statsBar.ZIndex = 5
+    corner(statsBar, 10)
+
+    for i, stat in ipairs({{value="v10.2",label="Version"},{value="2024",label="Released"},{value="FE",label="Secure"}}) do
+        local sf = Instance.new("Frame", statsBar)
+        sf.Size = UDim2.new(1/3, 0, 1, 0)
+        sf.Position = UDim2.new((i-1)/3, 0, 0, 0)
+        sf.BackgroundTransparency = 1
+        sf.ZIndex = 6
+
+        if i > 1 then
+            local sep = Instance.new("Frame", sf)
+            sep.Size = UDim2.new(0, 1, 0.5, 0)
+            sep.Position = UDim2.new(0, 0, 0.25, 0)
+            sep.BackgroundColor3 = Color3.fromRGB(255,255,255)
+            sep.BackgroundTransparency = 0.85
+            sep.ZIndex = 6
+        end
+
+        local sv = Instance.new("TextLabel", sf)
+        sv.Size = UDim2.new(1, 0, 0, 18); sv.Position = UDim2.new(0,0,0,4)
+        sv.BackgroundTransparency=1; sv.Text=stat.value
+        sv.TextColor3=Color3.new(1,1,1); sv.Font=Enum.Font.GothamBold; sv.TextSize=11
+        sv.ZIndex=7
+
+        local sl = Instance.new("TextLabel", sf)
+        sl.Size = UDim2.new(1, 0, 0, 12); sl.Position = UDim2.new(0,0,0,22)
+        sl.BackgroundTransparency=1; sl.Text=stat.label
+        sl.TextColor3=Color3.fromRGB(130,130,155); sl.Font=Enum.Font.Gotham; sl.TextSize=8
+        sl.ZIndex=7
     end
-    
-    -- Action buttons
-    local copyLinkBtn = Instance.new("TextButton", devFrame)
-    copyLinkBtn.Size = UDim2.new(0, 90, 0, 28)
-    copyLinkBtn.Position = UDim2.new(1, -100, 0, 196)
-    copyLinkBtn.BackgroundColor3 = Color3.fromRGB(80, 140, 255)
-    copyLinkBtn.Text = "Profile"
-    copyLinkBtn.TextColor3 = Color3.new(1, 1, 1)
-    copyLinkBtn.Font = Enum.Font.GothamBold
-    copyLinkBtn.TextSize = 10
-    copyLinkBtn.AutoButtonColor = false
-    copyLinkBtn.ZIndex = 5
-    corner(copyLinkBtn, 8)
-    pressFX(copyLinkBtn)
-    copyLinkBtn.MouseButton1Click:Connect(function()
+
+    local profileBtn = Instance.new("TextButton", devFrame)
+    profileBtn.Size = UDim2.new(0, 80, 0, 26)
+    profileBtn.Position = UDim2.new(1, -90, 0, 184)
+    profileBtn.BackgroundColor3 = T.Accent
+    profileBtn.Text = "Profile ↗"
+    profileBtn.TextColor3 = Color3.new(1,1,1)
+    profileBtn.Font = Enum.Font.GothamBold
+    profileBtn.TextSize = 10
+    profileBtn.AutoButtonColor = false
+    profileBtn.ZIndex = 6
+    corner(profileBtn, 8)
+    pressFX(profileBtn)
+    profileBtn.MouseButton1Click:Connect(function()
         copyToClipboard("https://www.roblox.com/users/1/profile")
         showDynamicNotification("Profile link copied!", T.Green)
     end)
-    
-    -- Fetch real developer info
+
+    -- Fetch real info
     task.spawn(function()
-        local userId
         pcall(function()
-            local searchRes = HttpService:JSONDecode(HttpService:GetAsync("https://users.roblox.com/v1/users/search?keyword=alfread&limit=1"))
-            if searchRes and searchRes.data and #searchRes.data > 0 then
-                userId = searchRes.data[1].id
-                local userInfo = HttpService:JSONDecode(HttpService:GetAsync("https://users.roblox.com/v1/users/" .. userId))
-                nameLbl.Text = userInfo.displayName or userInfo.name or "alfread"
-                descLbl.Text = (userInfo.description or "Creator of Phone ID Viewer\nAdvanced Roblox Scripting")
-                av.Image = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. userId .. "&width=150&height=150&format=png"
-                copyLinkBtn.MouseButton1Click:Connect(function()
-                    copyToClipboard("https://www.roblox.com/users/" .. userId .. "/profile")
+            local res = HttpService:JSONDecode(HttpService:GetAsync("https://users.roblox.com/v1/users/search?keyword=alfread&limit=1"))
+            if res and res.data and #res.data > 0 then
+                local uid = res.data[1].id
+                local info = HttpService:JSONDecode(HttpService:GetAsync("https://users.roblox.com/v1/users/" .. uid))
+                nameLbl.Text = info.displayName or info.name or "alfread"
+                descLbl.Text = info.description or "Creator of Phone ID Viewer\nAdvanced Roblox Scripting"
+                av.Image = "https://www.roblox.com/headshot-thumbnail/image?userId="..uid.."&width=150&height=150&format=png"
+                profileBtn.MouseButton1Click:Connect(function()
+                    copyToClipboard("https://www.roblox.com/users/"..uid.."/profile")
                     showDynamicNotification("Profile link copied!", T.Green)
                 end)
             end
         end)
     end)
-    
-    -- ==================== SECTION: SECURITY ====================
-    -- Section Header
-    local securityHeader = Instance.new("Frame", appContent)
-    securityHeader.Size = UDim2.new(1, 0, 0, 42)
-    securityHeader.BackgroundTransparency = 1
-    securityHeader.LayoutOrder = 1
-    
-    local securityAccent = Instance.new("Frame", securityHeader)
-    securityAccent.Size = UDim2.new(0, 4, 0, 28)
-    securityAccent.Position = UDim2.new(0, 0, 0.5, -14)
-    securityAccent.BackgroundColor3 = T.Accent
-    corner(securityAccent, 2)
-    
-    local securityTitle = Instance.new("TextLabel", securityHeader)
-    securityTitle.Size = UDim2.new(1, -16, 0, 20)
-    securityTitle.Position = UDim2.new(0, 10, 0, 2)
-    securityTitle.BackgroundTransparency = 1
-    securityTitle.Text = "Security"
-    securityTitle.TextColor3 = T.Text
-    securityTitle.Font = Enum.Font.GothamBlack
-    securityTitle.TextSize = 14
-    securityTitle.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local securityDesc = Instance.new("TextLabel", securityHeader)
-    securityDesc.Size = UDim2.new(1, -16, 0, 16)
-    securityDesc.Position = UDim2.new(0, 10, 0, 22)
-    securityDesc.BackgroundTransparency = 1
-    securityDesc.Text = "Lock your phone and change passcode"
-    securityDesc.TextColor3 = T.Text2
-    securityDesc.Font = Enum.Font.Gotham
-    securityDesc.TextSize = 9
-    securityDesc.TextXAlignment = Enum.TextXAlignment.Left
-    
-    -- Auto Lock Card
-    local autoLockFrame = Instance.new("Frame", appContent)
-    autoLockFrame.Size = UDim2.new(1, 0, 0, 104)
-    autoLockFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    autoLockFrame.LayoutOrder = 2
-    corner(autoLockFrame, 14)
-    stroke(autoLockFrame, Color3.fromRGB(225, 225, 230), 1, 0.3)
-    
-    -- Card shadow
-    local autoLockShadow = Instance.new("Frame", autoLockFrame)
-    autoLockShadow.Size = UDim2.new(1, 6, 1, 6)
-    autoLockShadow.Position = UDim2.new(0.5, 0, 0.5, 0)
-    autoLockShadow.AnchorPoint = Vector2.new(0.5, 0.5)
-    autoLockShadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    autoLockShadow.BackgroundTransparency = 0.94
-    autoLockShadow.ZIndex = -1
-    corner(autoLockShadow, 16)
-    
-    local autoLockTitle = Instance.new("TextLabel", autoLockFrame)
-    autoLockTitle.Size = UDim2.new(1, -24, 0, 22)
-    autoLockTitle.Position = UDim2.new(0, 12, 0, 10)
-    autoLockTitle.BackgroundTransparency = 1
-    autoLockTitle.Text = "Auto Lock Timer"
-    autoLockTitle.TextColor3 = T.Text
-    autoLockTitle.Font = Enum.Font.GothamBold
-    autoLockTitle.TextSize = 13
-    autoLockTitle.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local autoLockDesc = Instance.new("TextLabel", autoLockFrame)
-    autoLockDesc.Size = UDim2.new(1, -24, 0, 16)
-    autoLockDesc.Position = UDim2.new(0, 12, 0, 32)
-    autoLockDesc.BackgroundTransparency = 1
-    autoLockDesc.Text = "Phone will auto-lock after inactivity (0 = disabled)"
-    autoLockDesc.TextColor3 = T.Text2
-    autoLockDesc.Font = Enum.Font.Gotham
-    autoLockDesc.TextSize = 9
-    autoLockDesc.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local inputRow = Instance.new("Frame", autoLockFrame)
-    inputRow.Size = UDim2.new(1, -24, 0, 34)
-    inputRow.Position = UDim2.new(0, 12, 0, 56)
-    inputRow.BackgroundTransparency = 1
-    
-    local autoLockInput = Instance.new("TextBox", inputRow)
-    autoLockInput.Size = UDim2.new(0, 70, 1, 0)
-    autoLockInput.Text = tostring(appSettings.autoLockSeconds)
-    autoLockInput.PlaceholderText = "0"
-    autoLockInput.BackgroundColor3 = Color3.fromRGB(245, 245, 248)
-    autoLockInput.TextColor3 = T.Text
-    autoLockInput.Font = Enum.Font.GothamBold
-    autoLockInput.TextSize = 16
-    autoLockInput.TextXAlignment = Enum.TextXAlignment.Center
-    corner(autoLockInput, 8)
-    stroke(autoLockInput, Color3.fromRGB(210, 210, 215), 1, 0.3)
-    
-    local secLabel = Instance.new("TextLabel", inputRow)
-    secLabel.Size = UDim2.new(0, 50, 1, 0)
-    secLabel.Position = UDim2.new(0, 78, 0, 0)
-    secLabel.BackgroundTransparency = 1
-    secLabel.Text = "seconds"
-    secLabel.TextColor3 = T.Text2
-    secLabel.Font = Enum.Font.Gotham
-    secLabel.TextSize = 11
-    secLabel.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local autoLockSave = Instance.new("TextButton", inputRow)
-    autoLockSave.Size = UDim2.new(0, 60, 1, 0)
-    autoLockSave.Position = UDim2.new(1, -60, 0, 0)
-    autoLockSave.BackgroundColor3 = T.Accent
-    autoLockSave.Text = "Save"
-    autoLockSave.TextColor3 = T.OnAccent
-    autoLockSave.Font = Enum.Font.GothamBold
-    autoLockSave.TextSize = 11
-    autoLockSave.AutoButtonColor = false
-    corner(autoLockSave, 8)
-    pressFX(autoLockSave)
-    autoLockSave.MouseButton1Click:Connect(function()
-        local val = tonumber(autoLockInput.Text) or 0
-        appSettings.autoLockSeconds = math.max(0, val)
-        persistSettings()
-        showDynamicNotification("Auto Lock: " .. appSettings.autoLockSeconds .. "s", T.Green)
-    end)
-    
-    -- Passcode Card
-    local passFrame = Instance.new("Frame", appContent)
-    passFrame.Size = UDim2.new(1, 0, 0, 210)
-    passFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    passFrame.LayoutOrder = 3
-    corner(passFrame, 14)
-    stroke(passFrame, Color3.fromRGB(225, 225, 230), 1, 0.3)
-    
-    local passShadow = Instance.new("Frame", passFrame)
-    passShadow.Size = UDim2.new(1, 6, 1, 6)
-    passShadow.Position = UDim2.new(0.5, 0, 0.5, 0)
-    passShadow.AnchorPoint = Vector2.new(0.5, 0.5)
-    passShadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    passShadow.BackgroundTransparency = 0.94
-    passShadow.ZIndex = -1
-    corner(passShadow, 16)
-    
-    local passTitle = Instance.new("TextLabel", passFrame)
-    passTitle.Size = UDim2.new(1, -24, 0, 22)
-    passTitle.Position = UDim2.new(0, 12, 0, 10)
-    passTitle.BackgroundTransparency = 1
-    passTitle.Text = "Change Passcode"
-    passTitle.TextColor3 = T.Text
-    passTitle.Font = Enum.Font.GothamBold
-    passTitle.TextSize = 13
-    passTitle.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local oldInput = Instance.new("TextBox", passFrame)
-    oldInput.Size = UDim2.new(1, -24, 0, 32)
-    oldInput.Position = UDim2.new(0, 12, 0, 44)
-    oldInput.PlaceholderText = "Current passcode"
-    oldInput.Text = ""
-    oldInput.BackgroundColor3 = Color3.fromRGB(245, 245, 248)
-    oldInput.TextColor3 = T.Text
-    oldInput.Font = Enum.Font.Gotham
-    oldInput.TextSize = 12
-    oldInput.PlaceholderColor3 = Color3.fromRGB(180, 180, 185)
-    corner(oldInput, 8)
-    stroke(oldInput, Color3.fromRGB(220, 220, 225), 1, 0.3)
-    
-    local newInput = Instance.new("TextBox", passFrame)
-    newInput.Size = UDim2.new(1, -24, 0, 32)
-    newInput.Position = UDim2.new(0, 12, 0, 84)
-    newInput.PlaceholderText = "New passcode (4 digits)"
-    newInput.Text = ""
-    newInput.BackgroundColor3 = Color3.fromRGB(245, 245, 248)
-    newInput.TextColor3 = T.Text
-    newInput.Font = Enum.Font.Gotham
-    newInput.TextSize = 12
-    newInput.PlaceholderColor3 = Color3.fromRGB(180, 180, 185)
-    corner(newInput, 8)
-    stroke(newInput, Color3.fromRGB(220, 220, 225), 1, 0.3)
-    
-    local confirmInput = Instance.new("TextBox", passFrame)
-    confirmInput.Size = UDim2.new(1, -24, 0, 32)
-    confirmInput.Position = UDim2.new(0, 12, 0, 124)
-    confirmInput.PlaceholderText = "Confirm new passcode"
-    confirmInput.Text = ""
-    confirmInput.BackgroundColor3 = Color3.fromRGB(245, 245, 248)
-    confirmInput.TextColor3 = T.Text
-    confirmInput.Font = Enum.Font.Gotham
-    confirmInput.TextSize = 12
-    confirmInput.PlaceholderColor3 = Color3.fromRGB(180, 180, 185)
-    corner(confirmInput, 8)
-    stroke(confirmInput, Color3.fromRGB(220, 220, 225), 1, 0.3)
-    
-    local changeBtn = Instance.new("TextButton", passFrame)
-    changeBtn.Size = UDim2.new(1, -24, 0, 36)
-    changeBtn.Position = UDim2.new(0, 12, 0, 164)
-    changeBtn.BackgroundColor3 = T.Accent
-    changeBtn.Text = "Update Passcode"
-    changeBtn.TextColor3 = T.OnAccent
-    changeBtn.Font = Enum.Font.GothamBold
-    changeBtn.TextSize = 12
-    changeBtn.AutoButtonColor = false
-    corner(changeBtn, 10)
-    pressFX(changeBtn)
-    changeBtn.MouseButton1Click:Connect(function()
-        local old = oldInput.Text
-        local newPin = newInput.Text
-        local conf = confirmInput.Text
-        if old ~= appSettings.passcode then
-            showDynamicNotification("Current PIN is incorrect", T.Red)
-            return
-        end
-        if #newPin ~= 4 or not tonumber(newPin) then
-            showDynamicNotification("PIN must be 4 digits", T.Red)
-            return
-        end
-        if newPin ~= conf then
-            showDynamicNotification("PINs do not match", T.Red)
-            return
-        end
-        appSettings.passcode = newPin
-        persistSettings()
-        showDynamicNotification("Passcode updated!", T.Green)
-        oldInput.Text = ""
-        newInput.Text = ""
-        confirmInput.Text = ""
-    end)
-    
-    -- ==================== SECTION: APPEARANCE ====================
-    local appearanceHeader = Instance.new("Frame", appContent)
-    appearanceHeader.Size = UDim2.new(1, 0, 0, 42)
-    appearanceHeader.BackgroundTransparency = 1
-    appearanceHeader.LayoutOrder = 4
-    
-    local appearanceAccent = Instance.new("Frame", appearanceHeader)
-    appearanceAccent.Size = UDim2.new(0, 4, 0, 28)
-    appearanceAccent.Position = UDim2.new(0, 0, 0.5, -14)
-    appearanceAccent.BackgroundColor3 = T.Accent
-    corner(appearanceAccent, 2)
-    
-    local appearanceTitle = Instance.new("TextLabel", appearanceHeader)
-    appearanceTitle.Size = UDim2.new(1, -16, 0, 20)
-    appearanceTitle.Position = UDim2.new(0, 10, 0, 2)
-    appearanceTitle.BackgroundTransparency = 1
-    appearanceTitle.Text = "Appearance"
-    appearanceTitle.TextColor3 = T.Text
-    appearanceTitle.Font = Enum.Font.GothamBlack
-    appearanceTitle.TextSize = 14
-    appearanceTitle.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local appearanceDesc = Instance.new("TextLabel", appearanceHeader)
-    appearanceDesc.Size = UDim2.new(1, -16, 0, 16)
-    appearanceDesc.Position = UDim2.new(0, 10, 0, 22)
-    appearanceDesc.BackgroundTransparency = 1
-    appearanceDesc.Text = "Customize how your phone looks"
-    appearanceDesc.TextColor3 = T.Text2
-    appearanceDesc.Font = Enum.Font.Gotham
-    appearanceDesc.TextSize = 9
-    appearanceDesc.TextXAlignment = Enum.TextXAlignment.Left
-    
-    -- Background Theme Card
-    local themeFrame = Instance.new("Frame", appContent)
-    themeFrame.Size = UDim2.new(1, 0, 0, 130)
-    themeFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    themeFrame.LayoutOrder = 5
-    corner(themeFrame, 14)
-    stroke(themeFrame, Color3.fromRGB(225, 225, 230), 1, 0.3)
-    
-    local themeShadow = Instance.new("Frame", themeFrame)
-    themeShadow.Size = UDim2.new(1, 6, 1, 6)
-    themeShadow.Position = UDim2.new(0.5, 0, 0.5, 0)
-    themeShadow.AnchorPoint = Vector2.new(0.5, 0.5)
-    themeShadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    themeShadow.BackgroundTransparency = 0.94
-    themeShadow.ZIndex = -1
-    corner(themeShadow, 16)
-    
-    local themeTitle = Instance.new("TextLabel", themeFrame)
-    themeTitle.Size = UDim2.new(1, -24, 0, 22)
-    themeTitle.Position = UDim2.new(0, 12, 0, 10)
-    themeTitle.BackgroundTransparency = 1
-    themeTitle.Text = "Background Theme"
-    themeTitle.TextColor3 = T.Text
-    themeTitle.Font = Enum.Font.GothamBold
-    themeTitle.TextSize = 13
-    themeTitle.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local colors = {
-        {color = Color3.fromRGB(255, 255, 255), name = "Light"},
-        {color = Color3.fromRGB(40, 40, 40), name = "Dark"},
-        {color = Color3.fromRGB(200, 220, 255), name = "Blue"},
-        {color = Color3.fromRGB(255, 230, 200), name = "Warm"}
-    }
-    
-    for i, themeData in ipairs(colors) do
-        local btn = Instance.new("TextButton", themeFrame)
-        btn.Size = UDim2.new(0, 66, 0, 52)
-        btn.Position = UDim2.new(0, 12 + (i-1) * 72, 0, 64)
-        btn.BackgroundColor3 = themeData.color
-        btn.Text = themeData.name
-        btn.TextColor3 = (themeData.name == "Dark") and Color3.new(1, 1, 1) or T.Text
-        btn.Font = Enum.Font.GothamBold
-        btn.TextSize = 9
-        btn.AutoButtonColor = false
-        corner(btn, 10)
-        stroke(btn, T.Border, 1, 0.3)
-        pressFX(btn)
-        
-        btn.MouseButton1Click:Connect(function()
-            appSettings.bgColor = themeData.color
-            appSettings.bgGradient = (themeData.name == "Light")
+
+    -- ================================================================
+    -- ② SECTION: ESP & TEAM
+    -- ================================================================
+    makeSection(appContent, 1, "◉", "ESP & Team", "Visibility settings for team members")
+
+    local espCard = makeCard(appContent, 2, 114)
+
+    -- Row 1: ESP On/Off
+    makeToggleRow(espCard, 4, "◉", "Team ESP", "Show map pin above team members",
+        appSettings.espEnabled ~= false,
+        function(val)
+            appSettings.espEnabled = val
             persistSettings()
-            homeWall.BackgroundColor3 = themeData.color
+            -- Toggle visibility semua pin yang sudah ada
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player.Character then
+                    local pin = player.Character:FindFirstChild("TeamMapPin")
+                    if pin then
+                        pin.Enabled = val
+                    end
+                end
+            end
+            showDynamicNotification(val and "ESP aktif" or "ESP dimatikan",
+                val and T.Green or T.Red)
+        end
+    )
+
+    makeDivider(espCard, 58)
+
+    -- Row 2: ESP hanya untuk diri sendiri
+    makeToggleRow(espCard, 62, "◎", "Hide Self Pin", "Don't show pin on your own character",
+        appSettings.espHideSelf ~= false,
+        function(val)
+            appSettings.espHideSelf = val
+            persistSettings()
+            local lp = Players.LocalPlayer
+            if lp and lp.Character then
+                local pin = lp.Character:FindFirstChild("TeamMapPin")
+                if pin then pin.Enabled = not val end
+            end
+        end
+    )
+
+    -- ================================================================
+    -- ③ SECTION: SECURITY
+    -- ================================================================
+    makeSection(appContent, 3, "🔒", "Security", "Lock your phone and change passcode")
+
+    -- Auto Lock card
+    local autoLockFrame = makeCard(appContent, 4, 104)
+
+    local alTitle = Instance.new("TextLabel", autoLockFrame)
+    alTitle.Size = UDim2.new(1,-24,0,20); alTitle.Position = UDim2.new(0,12,0,10)
+    alTitle.BackgroundTransparency=1; alTitle.Text="Auto Lock Timer"
+    alTitle.TextColor3=T.Text; alTitle.Font=Enum.Font.GothamBold; alTitle.TextSize=13
+    alTitle.TextXAlignment=Enum.TextXAlignment.Left
+
+    local alDesc = Instance.new("TextLabel", autoLockFrame)
+    alDesc.Size = UDim2.new(1,-24,0,14); alDesc.Position = UDim2.new(0,12,0,32)
+    alDesc.BackgroundTransparency=1; alDesc.Text="Auto-lock after inactivity (0 = disabled)"
+    alDesc.TextColor3=T.Text2; alDesc.Font=Enum.Font.Gotham; alDesc.TextSize=9
+    alDesc.TextXAlignment=Enum.TextXAlignment.Left
+
+    local inputRow = Instance.new("Frame", autoLockFrame)
+    inputRow.Size=UDim2.new(1,-24,0,34); inputRow.Position=UDim2.new(0,12,0,56)
+    inputRow.BackgroundTransparency=1
+
+    local autoLockInput = Instance.new("TextBox", inputRow)
+    autoLockInput.Size=UDim2.new(0,70,1,0); autoLockInput.Text=tostring(appSettings.autoLockSeconds)
+    autoLockInput.PlaceholderText="0"
+    autoLockInput.BackgroundColor3=Color3.fromRGB(245,245,250)
+    autoLockInput.TextColor3=T.Text; autoLockInput.Font=Enum.Font.GothamBold
+    autoLockInput.TextSize=16; autoLockInput.TextXAlignment=Enum.TextXAlignment.Center
+    corner(autoLockInput, 8); stroke(autoLockInput, Color3.fromRGB(215,215,222), 1, 0.2)
+
+    local secLabel = Instance.new("TextLabel", inputRow)
+    secLabel.Size=UDim2.new(0,50,1,0); secLabel.Position=UDim2.new(0,78,0,0)
+    secLabel.BackgroundTransparency=1; secLabel.Text="seconds"
+    secLabel.TextColor3=T.Text2; secLabel.Font=Enum.Font.Gotham; secLabel.TextSize=11
+    secLabel.TextXAlignment=Enum.TextXAlignment.Left
+
+    local alSave = Instance.new("TextButton", inputRow)
+    alSave.Size=UDim2.new(0,60,1,0); alSave.Position=UDim2.new(1,-60,0,0)
+    alSave.BackgroundColor3=T.Accent; alSave.Text="Save"
+    alSave.TextColor3=T.OnAccent; alSave.Font=Enum.Font.GothamBold; alSave.TextSize=11
+    alSave.AutoButtonColor=false; corner(alSave, 8); pressFX(alSave)
+    alSave.MouseButton1Click:Connect(function()
+        appSettings.autoLockSeconds = math.max(0, tonumber(autoLockInput.Text) or 0)
+        persistSettings()
+        showDynamicNotification("Auto Lock: "..appSettings.autoLockSeconds.."s", T.Green)
+    end)
+
+    -- Passcode card
+    local passFrame = makeCard(appContent, 5, 210)
+
+    local passTitle = Instance.new("TextLabel", passFrame)
+    passTitle.Size=UDim2.new(1,-24,0,20); passTitle.Position=UDim2.new(0,12,0,10)
+    passTitle.BackgroundTransparency=1; passTitle.Text="Change Passcode"
+    passTitle.TextColor3=T.Text; passTitle.Font=Enum.Font.GothamBold; passTitle.TextSize=13
+    passTitle.TextXAlignment=Enum.TextXAlignment.Left
+
+    local function makePassInput(parent, yPos, placeholder)
+        local tb = Instance.new("TextBox", parent)
+        tb.Size=UDim2.new(1,-24,0,34); tb.Position=UDim2.new(0,12,0,yPos)
+        tb.PlaceholderText=placeholder; tb.Text=""
+        tb.BackgroundColor3=Color3.fromRGB(247,247,252)
+        tb.TextColor3=T.Text; tb.Font=Enum.Font.Gotham; tb.TextSize=12
+        tb.PlaceholderColor3=Color3.fromRGB(185,185,195)
+        corner(tb, 9); stroke(tb, Color3.fromRGB(222,222,230), 1, 0.2)
+        return tb
+    end
+
+    local oldInput     = makePassInput(passFrame, 44,  "Current passcode")
+    local newInput     = makePassInput(passFrame, 86,  "New passcode (4 digits)")
+    local confirmInput = makePassInput(passFrame, 128, "Confirm new passcode")
+
+    local changeBtn = Instance.new("TextButton", passFrame)
+    changeBtn.Size=UDim2.new(1,-24,0,36); changeBtn.Position=UDim2.new(0,12,0,170)
+    changeBtn.BackgroundColor3=T.Accent; changeBtn.Text="Update Passcode"
+    changeBtn.TextColor3=T.OnAccent; changeBtn.Font=Enum.Font.GothamBold; changeBtn.TextSize=12
+    changeBtn.AutoButtonColor=false; corner(changeBtn, 10); pressFX(changeBtn)
+    changeBtn.MouseButton1Click:Connect(function()
+        if oldInput.Text ~= appSettings.passcode then
+            showDynamicNotification("Current PIN incorrect", T.Red); return
+        end
+        if #newInput.Text ~= 4 or not tonumber(newInput.Text) then
+            showDynamicNotification("PIN must be 4 digits", T.Red); return
+        end
+        if newInput.Text ~= confirmInput.Text then
+            showDynamicNotification("PINs do not match", T.Red); return
+        end
+        appSettings.passcode = newInput.Text; persistSettings()
+        showDynamicNotification("Passcode updated!", T.Green)
+        oldInput.Text=""; newInput.Text=""; confirmInput.Text=""
+    end)
+
+    -- ================================================================
+    -- ④ SECTION: APPEARANCE
+    -- ================================================================
+    makeSection(appContent, 6, "🎨", "Appearance", "Customize how your phone looks")
+
+    -- Theme card
+    local themeFrame = makeCard(appContent, 7, 130)
+
+    local thTitle = Instance.new("TextLabel", themeFrame)
+    thTitle.Size=UDim2.new(1,-24,0,20); thTitle.Position=UDim2.new(0,12,0,10)
+    thTitle.BackgroundTransparency=1; thTitle.Text="Background Theme"
+    thTitle.TextColor3=T.Text; thTitle.Font=Enum.Font.GothamBold; thTitle.TextSize=13
+    thTitle.TextXAlignment=Enum.TextXAlignment.Left
+
+    local colors = {
+        {color=Color3.fromRGB(255,255,255), name="Light"},
+        {color=Color3.fromRGB(30,30,42),    name="Dark"},
+        {color=Color3.fromRGB(200,220,255), name="Blue"},
+        {color=Color3.fromRGB(255,235,210), name="Warm"}
+    }
+    for i, td in ipairs(colors) do
+        local btn = Instance.new("TextButton", themeFrame)
+        btn.Size=UDim2.new(0,62,0,52); btn.Position=UDim2.new(0, 12+(i-1)*68, 0, 64)
+        btn.BackgroundColor3=td.color
+        btn.Text=td.name
+        btn.TextColor3=(td.name=="Dark") and Color3.new(1,1,1) or T.Text
+        btn.Font=Enum.Font.GothamBold; btn.TextSize=9
+        btn.AutoButtonColor=false
+        corner(btn, 10); stroke(btn, T.Border, 1, 0.2); pressFX(btn)
+        btn.MouseButton1Click:Connect(function()
+            appSettings.bgColor=td.color; appSettings.bgGradient=(td.name=="Light")
+            persistSettings()
+            homeWall.BackgroundColor3=td.color
+            local existGrad = homeWall:FindFirstChildOfClass("UIGradient")
+            if existGrad then existGrad:Destroy() end
             if appSettings.bgGradient then
-                if homeWall:FindFirstChildOfClass("UIGradient") then
-                    homeWall:FindFirstChildOfClass("UIGradient"):Destroy()
-                end
                 gradient(homeWall, ColorSequence.new({
-                    ColorSequenceKeypoint.new(0, Color3.fromRGB(220, 220, 240)),
-                    ColorSequenceKeypoint.new(1, Color3.fromRGB(250, 250, 255))
+                    ColorSequenceKeypoint.new(0, Color3.fromRGB(220,220,240)),
+                    ColorSequenceKeypoint.new(1, Color3.fromRGB(250,250,255))
                 }), 135)
-            else
-                if homeWall:FindFirstChildOfClass("UIGradient") then
-                    homeWall:FindFirstChildOfClass("UIGradient"):Destroy()
-                end
             end
-            phone.BackgroundColor3 = themeData.color
-            showDynamicNotification("Theme: " .. themeData.name, T.Green)
+            phone.BackgroundColor3=td.color
+            showDynamicNotification("Theme: "..td.name, T.Green)
         end)
     end
-    
-    -- Glow Effect Card
-    local glowFrame = Instance.new("Frame", appContent)
-    glowFrame.Size = UDim2.new(1, 0, 0, 52)
-    glowFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    glowFrame.LayoutOrder = 6
-    corner(glowFrame, 14)
-    stroke(glowFrame, Color3.fromRGB(225, 225, 230), 1, 0.3)
-    
-    local glowShadow = Instance.new("Frame", glowFrame)
-    glowShadow.Size = UDim2.new(1, 6, 1, 6)
-    glowShadow.Position = UDim2.new(0.5, 0, 0.5, 0)
-    glowShadow.AnchorPoint = Vector2.new(0.5, 0.5)
-    glowShadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    glowShadow.BackgroundTransparency = 0.94
-    glowShadow.ZIndex = -1
-    corner(glowShadow, 16)
-    
-    local glowTitle = Instance.new("TextLabel", glowFrame)
-    glowTitle.Size = UDim2.new(0, 170, 1, 0)
-    glowTitle.Position = UDim2.new(0, 12, 0, 0)
-    glowTitle.BackgroundTransparency = 1
-    glowTitle.Text = "Phone Glow Effect"
-    glowTitle.TextColor3 = T.Text
-    glowTitle.Font = Enum.Font.GothamBold
-    glowTitle.TextSize = 12
-    glowTitle.TextXAlignment = Enum.TextXAlignment.Left
-    
-    buildToggle(glowFrame, appSettings.glowEnabled, function(val)
-        appSettings.glowEnabled = val
-        persistSettings()
-        phoneStroke.Transparency = val and 0.5 or 0.15
-    end).Position = UDim2.new(1, -56, 0.5, -13)
-    
-    -- Phone Opacity Card
-    local opacityFrame = Instance.new("Frame", appContent)
-    opacityFrame.Size = UDim2.new(1, 0, 0, 100)
-    opacityFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    opacityFrame.LayoutOrder = 7
-    corner(opacityFrame, 14)
-    stroke(opacityFrame, Color3.fromRGB(225, 225, 230), 1, 0.3)
-    
-    local opacityShadow = Instance.new("Frame", opacityFrame)
-    opacityShadow.Size = UDim2.new(1, 6, 1, 6)
-    opacityShadow.Position = UDim2.new(0.5, 0, 0.5, 0)
-    opacityShadow.AnchorPoint = Vector2.new(0.5, 0.5)
-    opacityShadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    opacityShadow.BackgroundTransparency = 0.94
-    opacityShadow.ZIndex = -1
-    corner(opacityShadow, 16)
-    
-    local opTitle = Instance.new("TextLabel", opacityFrame)
-    opTitle.Size = UDim2.new(1, -24, 0, 22)
-    opTitle.Position = UDim2.new(0, 12, 0, 10)
-    opTitle.BackgroundTransparency = 1
-    opTitle.Text = "Phone Opacity"
-    opTitle.TextColor3 = T.Text
-    opTitle.Font = Enum.Font.GothamBold
-    opTitle.TextSize = 13
-    opTitle.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local opVal = Instance.new("TextLabel", opacityFrame)
-    opVal.Size = UDim2.new(1, -24, 0, 16)
-    opVal.Position = UDim2.new(0, 12, 0, 32)
-    opVal.BackgroundTransparency = 1
-    opVal.Text = "Opacity: " .. math.floor((appSettings.phoneOpacity or 1) * 100) .. "%"
-    opVal.TextColor3 = T.Text2
-    opVal.Font = Enum.Font.Gotham
-    opVal.TextSize = 10
-    opVal.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local opSlider = Instance.new("TextButton", opacityFrame)
-    opSlider.Size = UDim2.new(1, -24, 0, 28)
-    opSlider.Position = UDim2.new(0, 12, 0, 56)
-    opSlider.BackgroundColor3 = Color3.fromRGB(240, 240, 245)
-    opSlider.Text = ""
-    corner(opSlider, 14)
-    
-    local opFill = Instance.new("Frame", opSlider)
-    opFill.Size = UDim2.new(appSettings.phoneOpacity or 1, 0, 1, 0)
-    opFill.BackgroundColor3 = T.Accent
-    corner(opFill, 14)
-    
-    local function setOpacity(val)
-        val = math.clamp(val, 0.3, 1)
-        appSettings.phoneOpacity = val
-        persistSettings()
-        opFill.Size = UDim2.new(val, 0, 1, 0)
-        opVal.Text = "Opacity: " .. math.floor(val * 100) .. "%"
-        phone.BackgroundTransparency = 1 - val
+
+    -- Toggles card: Glow + Opacity dalam satu card
+    local appearCard = makeCard(appContent, 8, 160)
+
+    makeToggleRow(appearCard, 4, "✦", "Phone Glow Effect", "Colored border around phone frame",
+        appSettings.glowEnabled,
+        function(val)
+            appSettings.glowEnabled = val; persistSettings()
+            phoneStroke.Transparency = val and 0.5 or 0.15
+        end
+    )
+
+    makeDivider(appearCard, 58)
+
+    -- Opacity slider dalam card yang sama
+    local opTitle2 = Instance.new("TextLabel", appearCard)
+    opTitle2.Size=UDim2.new(1,-24,0,16); opTitle2.Position=UDim2.new(0,12,0,66)
+    opTitle2.BackgroundTransparency=1; opTitle2.Text="Phone Opacity"
+    opTitle2.TextColor3=T.Text; opTitle2.Font=Enum.Font.GothamBold; opTitle2.TextSize=12
+    opTitle2.TextXAlignment=Enum.TextXAlignment.Left
+
+    local opVal2 = Instance.new("TextLabel", appearCard)
+    opVal2.Size=UDim2.new(0,60,0,16); opVal2.Position=UDim2.new(1,-72,0,66)
+    opVal2.BackgroundTransparency=1
+    opVal2.Text=math.floor((appSettings.phoneOpacity or 1)*100).."%"
+    opVal2.TextColor3=T.Accent; opVal2.Font=Enum.Font.GothamBold; opVal2.TextSize=12
+    opVal2.TextXAlignment=Enum.TextXAlignment.Right
+
+    local opTrack = Instance.new("TextButton", appearCard)
+    opTrack.Size=UDim2.new(1,-24,0,24); opTrack.Position=UDim2.new(0,12,0,90)
+    opTrack.BackgroundColor3=Color3.fromRGB(235,235,242); opTrack.Text=""
+    opTrack.AutoButtonColor=false; corner(opTrack, 12)
+
+    local opFill2 = Instance.new("Frame", opTrack)
+    opFill2.Size=UDim2.new(appSettings.phoneOpacity or 1,0,1,0)
+    opFill2.BackgroundColor3=T.Accent; corner(opFill2, 12)
+
+    local opKnob = Instance.new("Frame", opTrack)
+    opKnob.Size=UDim2.new(0,20,0,20); opKnob.AnchorPoint=Vector2.new(0.5,0.5)
+    local kx = (appSettings.phoneOpacity or 1)
+    opKnob.Position=UDim2.new(kx,0,0.5,0)
+    opKnob.BackgroundColor3=Color3.new(1,1,1); corner(opKnob,100)
+    stroke(opKnob, T.Accent, 2, 0)
+
+    local function setOp(val)
+        val=math.clamp(val,0.3,1)
+        appSettings.phoneOpacity=val; persistSettings()
+        opFill2.Size=UDim2.new(val,0,1,0)
+        opKnob.Position=UDim2.new(val,0,0.5,0)
+        opVal2.Text=math.floor(val*100).."%"
+        phone.BackgroundTransparency=1-val
     end
-    
-    opSlider.MouseButton1Down:Connect(function()
+
+    opTrack.MouseButton1Down:Connect(function()
         local con
-        con = RunService.RenderStepped:Connect(function()
+        con=RunService.RenderStepped:Connect(function()
             if not UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-                con:Disconnect()
-                return
+                con:Disconnect(); return
             end
-            local mousePos = UserInputService:GetMouseLocation()
-            local absX = opSlider.AbsolutePosition.X
-            local absSizeX = opSlider.AbsoluteSize.X
-            if absSizeX <= 0 then absSizeX = 1 end
-            local relX = (mousePos.X - absX) / absSizeX
-            setOpacity(0.3 + relX * 0.7)
+            local mx=UserInputService:GetMouseLocation().X
+            local ax=opTrack.AbsolutePosition.X; local aw=opTrack.AbsoluteSize.X
+            if aw<=0 then aw=1 end
+            setOp(0.3+(mx-ax)/aw*0.7)
         end)
     end)
-    
-    -- ==================== SECTION: SOUND ====================
-    local soundHeader = Instance.new("Frame", appContent)
-    soundHeader.Size = UDim2.new(1, 0, 0, 42)
-    soundHeader.BackgroundTransparency = 1
-    soundHeader.LayoutOrder = 8
-    
-    local soundAccent = Instance.new("Frame", soundHeader)
-    soundAccent.Size = UDim2.new(0, 4, 0, 28)
-    soundAccent.Position = UDim2.new(0, 0, 0.5, -14)
-    soundAccent.BackgroundColor3 = T.Accent
-    corner(soundAccent, 2)
-    
-    local soundTitle = Instance.new("TextLabel", soundHeader)
-    soundTitle.Size = UDim2.new(1, -16, 0, 20)
-    soundTitle.Position = UDim2.new(0, 10, 0, 2)
-    soundTitle.BackgroundTransparency = 1
-    soundTitle.Text = "Sound"
-    soundTitle.TextColor3 = T.Text
-    soundTitle.Font = Enum.Font.GothamBlack
-    soundTitle.TextSize = 14
-    soundTitle.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local soundDesc = Instance.new("TextLabel", soundHeader)
-    soundDesc.Size = UDim2.new(1, -16, 0, 16)
-    soundDesc.Position = UDim2.new(0, 10, 0, 22)
-    soundDesc.BackgroundTransparency = 1
-    soundDesc.Text = "Configure audio settings"
-    soundDesc.TextColor3 = T.Text2
-    soundDesc.Font = Enum.Font.Gotham
-    soundDesc.TextSize = 9
-    soundDesc.TextXAlignment = Enum.TextXAlignment.Left
-    
-    -- Background Music Card
-    local musicFrame = Instance.new("Frame", appContent)
-    musicFrame.Size = UDim2.new(1, 0, 0, 90)
-    musicFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    musicFrame.LayoutOrder = 9
-    corner(musicFrame, 14)
-    stroke(musicFrame, Color3.fromRGB(225, 225, 230), 1, 0.3)
-    
-    local musicShadow = Instance.new("Frame", musicFrame)
-    musicShadow.Size = UDim2.new(1, 6, 1, 6)
-    musicShadow.Position = UDim2.new(0.5, 0, 0.5, 0)
-    musicShadow.AnchorPoint = Vector2.new(0.5, 0.5)
-    musicShadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    musicShadow.BackgroundTransparency = 0.94
-    musicShadow.ZIndex = -1
-    corner(musicShadow, 16)
-    
-    local musicTitle = Instance.new("TextLabel", musicFrame)
-    musicTitle.Size = UDim2.new(1, -24, 0, 22)
-    musicTitle.Position = UDim2.new(0, 12, 0, 10)
-    musicTitle.BackgroundTransparency = 1
-    musicTitle.Text = "Background Music URL"
-    musicTitle.TextColor3 = T.Text
-    musicTitle.Font = Enum.Font.GothamBold
-    musicTitle.TextSize = 13
-    musicTitle.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local musicInput = Instance.new("TextBox", musicFrame)
-    musicInput.Size = UDim2.new(1, -24, 0, 32)
-    musicInput.Position = UDim2.new(0, 12, 0, 40)
-    musicInput.Text = appSettings.backgroundMusicUrl or ""
-    musicInput.PlaceholderText = "rbxassetid://..."
-    musicInput.BackgroundColor3 = Color3.fromRGB(245, 245, 248)
-    musicInput.TextColor3 = T.Text
-    musicInput.Font = Enum.Font.Code
-    musicInput.TextSize = 11
-    musicInput.PlaceholderColor3 = Color3.fromRGB(180, 180, 185)
-    corner(musicInput, 8)
-    stroke(musicInput, Color3.fromRGB(220, 220, 225), 1, 0.3)
-    
-    local musicSave = Instance.new("TextButton", musicFrame)
-    musicSave.Size = UDim2.new(0, 70, 0, 26)
-    musicSave.Position = UDim2.new(1, -82, 0, 52)
-    musicSave.BackgroundColor3 = T.Accent
-    musicSave.Text = "Apply"
-    musicSave.TextColor3 = T.OnAccent
-    musicSave.Font = Enum.Font.GothamBold
-    musicSave.TextSize = 10
-    musicSave.AutoButtonColor = false
-    corner(musicSave, 8)
-    pressFX(musicSave)
-    musicSave.MouseButton1Click:Connect(function()
-        appSettings.backgroundMusicUrl = musicInput.Text
-        persistSettings()
-        updateBackgroundMusic()
-        showDynamicNotification("Music updated!", T.Green)
-    end)
-    
-    -- Button Sound Card
-    local btnSoundFrame = Instance.new("Frame", appContent)
-    btnSoundFrame.Size = UDim2.new(1, 0, 0, 90)
-    btnSoundFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    btnSoundFrame.LayoutOrder = 10
-    corner(btnSoundFrame, 14)
-    stroke(btnSoundFrame, Color3.fromRGB(225, 225, 230), 1, 0.3)
-    
-    local btnSoundShadow = Instance.new("Frame", btnSoundFrame)
-    btnSoundShadow.Size = UDim2.new(1, 6, 1, 6)
-    btnSoundShadow.Position = UDim2.new(0.5, 0, 0.5, 0)
-    btnSoundShadow.AnchorPoint = Vector2.new(0.5, 0.5)
-    btnSoundShadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    btnSoundShadow.BackgroundTransparency = 0.94
-    btnSoundShadow.ZIndex = -1
-    corner(btnSoundShadow, 16)
-    
-    local btnSoundTitle = Instance.new("TextLabel", btnSoundFrame)
-    btnSoundTitle.Size = UDim2.new(1, -24, 0, 22)
-    btnSoundTitle.Position = UDim2.new(0, 12, 0, 10)
-    btnSoundTitle.BackgroundTransparency = 1
-    btnSoundTitle.Text = "Button Sound URL"
-    btnSoundTitle.TextColor3 = T.Text
-    btnSoundTitle.Font = Enum.Font.GothamBold
-    btnSoundTitle.TextSize = 13
-    btnSoundTitle.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local btnSoundInput = Instance.new("TextBox", btnSoundFrame)
-    btnSoundInput.Size = UDim2.new(1, -24, 0, 32)
-    btnSoundInput.Position = UDim2.new(0, 12, 0, 40)
-    btnSoundInput.Text = appSettings.buttonSoundUrl or ""
-    btnSoundInput.PlaceholderText = "rbxassetid://..."
-    btnSoundInput.BackgroundColor3 = Color3.fromRGB(245, 245, 248)
-    btnSoundInput.TextColor3 = T.Text
-    btnSoundInput.Font = Enum.Font.Code
-    btnSoundInput.TextSize = 11
-    btnSoundInput.PlaceholderColor3 = Color3.fromRGB(180, 180, 185)
-    corner(btnSoundInput, 8)
-    stroke(btnSoundInput, Color3.fromRGB(220, 220, 225), 1, 0.3)
-    
-    local btnSoundSave = Instance.new("TextButton", btnSoundFrame)
-    btnSoundSave.Size = UDim2.new(0, 70, 0, 26)
-    btnSoundSave.Position = UDim2.new(1, -82, 0, 52)
-    btnSoundSave.BackgroundColor3 = T.Accent
-    btnSoundSave.Text = "Apply"
-    btnSoundSave.TextColor3 = T.OnAccent
-    btnSoundSave.Font = Enum.Font.GothamBold
-    btnSoundSave.TextSize = 10
-    btnSoundSave.AutoButtonColor = false
-    corner(btnSoundSave, 8)
-    pressFX(btnSoundSave)
-    btnSoundSave.MouseButton1Click:Connect(function()
-        appSettings.buttonSoundUrl = btnSoundInput.Text
-        persistSettings()
-        showDynamicNotification("Button sound updated!", T.Green)
-    end)
-    
-    -- ==================== SECTION: PREFERENCES ====================
-    local prefHeader = Instance.new("Frame", appContent)
-    prefHeader.Size = UDim2.new(1, 0, 0, 42)
-    prefHeader.BackgroundTransparency = 1
-    prefHeader.LayoutOrder = 11
-    
-    local prefAccent = Instance.new("Frame", prefHeader)
-    prefAccent.Size = UDim2.new(0, 4, 0, 28)
-    prefAccent.Position = UDim2.new(0, 0, 0.5, -14)
-    prefAccent.BackgroundColor3 = T.Accent
-    corner(prefAccent, 2)
-    
-    local prefTitle = Instance.new("TextLabel", prefHeader)
-    prefTitle.Size = UDim2.new(1, -16, 0, 20)
-    prefTitle.Position = UDim2.new(0, 10, 0, 2)
-    prefTitle.BackgroundTransparency = 1
-    prefTitle.Text = "Preferences"
-    prefTitle.TextColor3 = T.Text
-    prefTitle.Font = Enum.Font.GothamBlack
-    prefTitle.TextSize = 14
-    prefTitle.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local prefDesc = Instance.new("TextLabel", prefHeader)
-    prefDesc.Size = UDim2.new(1, -16, 0, 16)
-    prefDesc.Position = UDim2.new(0, 10, 0, 22)
-    prefDesc.BackgroundTransparency = 1
-    prefDesc.Text = "General app settings"
-    prefDesc.TextColor3 = T.Text2
-    prefDesc.Font = Enum.Font.Gotham
-    prefDesc.TextSize = 9
-    prefDesc.TextXAlignment = Enum.TextXAlignment.Left
-    
-    -- Toast Notifications Card
-    local toastFrame = Instance.new("Frame", appContent)
-    toastFrame.Size = UDim2.new(1, 0, 0, 52)
-    toastFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    toastFrame.LayoutOrder = 12
-    corner(toastFrame, 14)
-    stroke(toastFrame, Color3.fromRGB(225, 225, 230), 1, 0.3)
-    
-    local toastTitle = Instance.new("TextLabel", toastFrame)
-    toastTitle.Size = UDim2.new(0, 170, 1, 0)
-    toastTitle.Position = UDim2.new(0, 12, 0, 0)
-    toastTitle.BackgroundTransparency = 1
-    toastTitle.Text = "Toast Notifications"
-    toastTitle.TextColor3 = T.Text
-    toastTitle.Font = Enum.Font.GothamBold
-    toastTitle.TextSize = 12
-    toastTitle.TextXAlignment = Enum.TextXAlignment.Left
-    
-    buildToggle(toastFrame, appSettings.toastEnabled, function(val)
-        appSettings.toastEnabled = val
-        persistSettings()
-    end).Position = UDim2.new(1, -56, 0.5, -13)
-    
-    -- Clock Format Card
-    local clockFrame = Instance.new("Frame", appContent)
-    clockFrame.Size = UDim2.new(1, 0, 0, 52)
-    clockFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    clockFrame.LayoutOrder = 13
-    corner(clockFrame, 14)
-    stroke(clockFrame, Color3.fromRGB(225, 225, 230), 1, 0.3)
-    
-    local clockTitle = Instance.new("TextLabel", clockFrame)
-    clockTitle.Size = UDim2.new(0, 170, 1, 0)
-    clockTitle.Position = UDim2.new(0, 12, 0, 0)
-    clockTitle.BackgroundTransparency = 1
-    clockTitle.Text = "Clock (12H / 24H)"
-    clockTitle.TextColor3 = T.Text
-    clockTitle.Font = Enum.Font.GothamBold
-    clockTitle.TextSize = 12
-    clockTitle.TextXAlignment = Enum.TextXAlignment.Left
-    
-    buildToggle(clockFrame, appSettings.clockFormat == "12", function(val)
-        appSettings.clockFormat = val and "12" or "24"
-        persistSettings()
-    end).Position = UDim2.new(1, -56, 0.5, -13)
-    
-    -- Button Sounds Card
-    local bsFrame = Instance.new("Frame", appContent)
-    bsFrame.Size = UDim2.new(1, 0, 0, 52)
-    bsFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    bsFrame.LayoutOrder = 14
-    corner(bsFrame, 14)
-    stroke(bsFrame, Color3.fromRGB(225, 225, 230), 1, 0.3)
-    
-    local bsTitle = Instance.new("TextLabel", bsFrame)
-    bsTitle.Size = UDim2.new(0, 170, 1, 0)
-    bsTitle.Position = UDim2.new(0, 12, 0, 0)
-    bsTitle.BackgroundTransparency = 1
-    bsTitle.Text = "Button Sounds"
-    bsTitle.TextColor3 = T.Text
-    bsTitle.Font = Enum.Font.GothamBold
-    bsTitle.TextSize = 12
-    bsTitle.TextXAlignment = Enum.TextXAlignment.Left
-    
-    buildToggle(bsFrame, appSettings.buttonSounds, function(val)
-        appSettings.buttonSounds = val
-        persistSettings()
-    end).Position = UDim2.new(1, -56, 0.5, -13)
-    
-    -- ==================== RESET BUTTON ====================
+
+    local opReminder = Instance.new("TextLabel", appearCard)
+    opReminder.Size=UDim2.new(1,-24,0,14); opReminder.Position=UDim2.new(0,12,0,120)
+    opReminder.BackgroundTransparency=1; opReminder.Text="Drag slider to adjust (30%–100%)"
+    opReminder.TextColor3=T.Text2; opReminder.Font=Enum.Font.Gotham; opReminder.TextSize=8
+    opReminder.TextXAlignment=Enum.TextXAlignment.Left
+
+    -- ================================================================
+    -- ⑤ SECTION: SOUND
+    -- ================================================================
+    makeSection(appContent, 9, "🔊", "Sound", "Configure audio settings")
+
+    local soundCard = makeCard(appContent, 10, 172)
+
+    local function makeSoundRow(parent, yPos, title, settingKey, updateFn)
+        local lbl = Instance.new("TextLabel", parent)
+        lbl.Size=UDim2.new(1,-24,0,18); lbl.Position=UDim2.new(0,12,0,yPos)
+        lbl.BackgroundTransparency=1; lbl.Text=title
+        lbl.TextColor3=T.Text; lbl.Font=Enum.Font.GothamBold; lbl.TextSize=12
+        lbl.TextXAlignment=Enum.TextXAlignment.Left
+
+        local tb = Instance.new("TextBox", parent)
+        tb.Size=UDim2.new(1,-100,0,32); tb.Position=UDim2.new(0,12,0,yPos+20)
+        tb.Text=appSettings[settingKey] or ""
+        tb.PlaceholderText="rbxassetid://..."
+        tb.BackgroundColor3=Color3.fromRGB(247,247,252)
+        tb.TextColor3=T.Text; tb.Font=Enum.Font.Code; tb.TextSize=10
+        tb.PlaceholderColor3=Color3.fromRGB(185,185,195)
+        corner(tb, 8); stroke(tb, Color3.fromRGB(222,222,230), 1, 0.2)
+
+        local applyBtn = Instance.new("TextButton", parent)
+        applyBtn.Size=UDim2.new(0,72,0,32); applyBtn.Position=UDim2.new(1,-84,0,yPos+20)
+        applyBtn.BackgroundColor3=T.Accent; applyBtn.Text="Apply"
+        applyBtn.TextColor3=T.OnAccent; applyBtn.Font=Enum.Font.GothamBold; applyBtn.TextSize=10
+        applyBtn.AutoButtonColor=false; corner(applyBtn, 8); pressFX(applyBtn)
+        applyBtn.MouseButton1Click:Connect(function()
+            appSettings[settingKey]=tb.Text; persistSettings()
+            if updateFn then updateFn() end
+            showDynamicNotification(title.." updated!", T.Green)
+        end)
+    end
+
+    makeSoundRow(soundCard, 10, "Background Music URL", "backgroundMusicUrl", updateBackgroundMusic)
+    makeDivider(soundCard, 88)
+    makeSoundRow(soundCard, 94, "Button Sound URL", "buttonSoundUrl", nil)
+
+    -- ================================================================
+    -- ⑥ SECTION: PREFERENCES
+    -- ================================================================
+    makeSection(appContent, 11, "⚙", "Preferences", "General app settings")
+
+    local prefCard = makeCard(appContent, 12, 166)
+
+    makeToggleRow(prefCard, 4,  "🔔", "Toast Notifications", "Show popup notifications",
+        appSettings.toastEnabled,
+        function(val) appSettings.toastEnabled=val; persistSettings() end
+    )
+    makeDivider(prefCard, 58)
+    makeToggleRow(prefCard, 62, "🕐", "12H Clock Format",   "Toggle 12h / 24h time display",
+        appSettings.clockFormat=="12",
+        function(val) appSettings.clockFormat=val and"12"or"24"; persistSettings() end
+    )
+    makeDivider(prefCard, 116)
+    makeToggleRow(prefCard, 120, "🔉", "Button Sounds",      "Play sound on button press",
+        appSettings.buttonSounds,
+        function(val) appSettings.buttonSounds=val; persistSettings() end
+    )
+
+    -- ================================================================
+    -- ⑦ RESET BUTTON
+    -- ================================================================
     local resetBtn = Instance.new("TextButton", appContent)
-    resetBtn.Size = UDim2.new(1, 0, 0, 46)
-    resetBtn.BackgroundColor3 = Color3.fromRGB(255, 238, 238)
-    resetBtn.Text = "Reset All Settings"
-    resetBtn.TextColor3 = T.Red
-    resetBtn.Font = Enum.Font.GothamBold
-    resetBtn.TextSize = 12
-    resetBtn.AutoButtonColor = false
-    resetBtn.LayoutOrder = 15
-    corner(resetBtn, 12)
-    stroke(resetBtn, Color3.fromRGB(255, 200, 200), 1, 0.3)
+    resetBtn.Size=UDim2.new(1,0,0,46)
+    resetBtn.BackgroundColor3=Color3.fromRGB(255,240,240)
+    resetBtn.Text="↺  Reset All Settings"
+    resetBtn.TextColor3=T.Red
+    resetBtn.Font=Enum.Font.GothamBold; resetBtn.TextSize=12
+    resetBtn.AutoButtonColor=false; resetBtn.LayoutOrder=13
+    corner(resetBtn, 12); stroke(resetBtn, Color3.fromRGB(255,200,200), 1, 0.3)
     pressFX(resetBtn)
     resetBtn.MouseButton1Click:Connect(function()
-        for k, v in pairs(defaults) do
-            appSettings[k] = v
-        end
-        persistSettings()
-        updateBackgroundMusic()
-        phoneStroke.Transparency = 0.5
-        phone.BackgroundTransparency = 0
-        homeWall.BackgroundColor3 = Color3.fromRGB(240, 240, 250)
-        if not homeWall:FindFirstChildOfClass("UIGradient") then
+        for k,v in pairs(defaults) do appSettings[k]=v end
+        persistSettings(); updateBackgroundMusic()
+        phoneStroke.Transparency=0.5; phone.BackgroundTransparency=0
+        homeWall.BackgroundColor3=Color3.fromRGB(240,240,250)
+        local g=homeWall:FindFirstChildOfClass("UIGradient")
+        if not g then
             gradient(homeWall, ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Color3.fromRGB(220, 220, 240)),
-                ColorSequenceKeypoint.new(1, Color3.fromRGB(250, 250, 255))
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(220,220,240)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(250,250,255))
             }), 135)
         end
         showDynamicNotification("Settings reset to default!", T.Gold)
         refreshCurr()
     end)
+
 end
 
 -- ================= BUNDLE APP (UPGRADED - IMAGES, PERMANENT RENAME) =================
