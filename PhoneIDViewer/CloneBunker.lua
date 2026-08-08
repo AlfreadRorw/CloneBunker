@@ -143,8 +143,28 @@ local TARGETS = {
     {username = "jeyocal",             text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
     {username = "yellbubb",            text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
     {username = "Xetan01",             text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
-    {username = "xkillabe",             text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
+    {username = "xkillabe",            text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
 }
+
+-- ================= LAYOUT CONSTANTS =================
+-- Semua posisi elemen dihitung dari titik referensi yang sama supaya gak numpuk / gak geser.
+
+local BILLBOARD_SIZE   = UDim2.new(0, 90, 0, 90)
+local STUDS_OFFSET      = Vector3.new(0, 6.5, 0)  -- naik dari 3.5 -> 6.5 biar jelas di atas kepala & nametag default
+local PIN_SIZE          = 36
+local TAIL_SIZE         = 16
+local LABEL_WIDTH       = 76
+local LABEL_HEIGHT      = 20
+
+-- Urutan vertikal (dari atas billboard, Y = 0):
+--   0                -> pin body top
+--   PIN_SIZE - 8      -> tail top (overlap dikit ke body biar nyambung)
+--   PIN_SIZE + 14     -> label top
+local PIN_Y   = 0
+local TAIL_Y  = PIN_SIZE - 8
+local LABEL_Y = PIN_SIZE + 14
+
+local BOUNCE_OFFSET = 5 -- seberapa tinggi pin "mantul" saat animasi
 
 -- ================= INLINE HELPERS =================
 
@@ -181,7 +201,6 @@ local function findTargetPlayer(target)
 end
 
 -- ================= CREATE MAP PIN =================
--- Tidak ada body highlight sama sekali — hanya icon pin + label di atas kepala
 
 local function createMapPin(player, target)
     if not player.Character then return end
@@ -196,8 +215,8 @@ local function createMapPin(player, target)
     -- BillboardGui
     local billboard = Instance.new("BillboardGui")
     billboard.Name = "TeamMapPin"
-    billboard.Size = UDim2.new(0, 80, 0, 80)
-    billboard.StudsOffset = Vector3.new(0, 3.5, 0)
+    billboard.Size = BILLBOARD_SIZE
+    billboard.StudsOffset = STUDS_OFFSET
     billboard.AlwaysOnTop = true
     billboard.MaxDistance = 2000
     billboard.LightInfluence = 0
@@ -206,20 +225,16 @@ local function createMapPin(player, target)
     -- ── PIN BODY (lingkaran atas) ──────────────────────────────────────────
     local pinBody = Instance.new("Frame")
     pinBody.Name = "PinBody"
-    -- Ukuran lingkaran pin
-    pinBody.Size = UDim2.new(0, 36, 0, 36)
-    -- Posisi: tengah horizontal, bagian bawah billboard atas
-    pinBody.Position = UDim2.new(0.5, -18, 0, 0)
+    pinBody.Size = UDim2.new(0, PIN_SIZE, 0, PIN_SIZE)
+    pinBody.Position = UDim2.new(0.5, -PIN_SIZE / 2, 0, PIN_Y)
     pinBody.BackgroundColor3 = target.color
     pinBody.BorderSizePixel = 0
     pinBody.ZIndex = 2
     pinBody.Parent = billboard
     addCorner(pinBody, 100)
-
-    -- Border putih tipis di sekeliling lingkaran
     addStroke(pinBody, Color3.fromRGB(255, 255, 255), 2, 0)
 
-    -- Dot putih di tengah lingkaran (seperti ikon Google Maps)
+    -- Dot putih di tengah lingkaran
     local dot = Instance.new("Frame")
     dot.Size = UDim2.new(0, 12, 0, 12)
     dot.Position = UDim2.new(0.5, -6, 0.5, -6)
@@ -229,23 +244,22 @@ local function createMapPin(player, target)
     dot.Parent = pinBody
     addCorner(dot, 100)
 
-    -- ── EKOR PIN (segitiga ke bawah) ──────────────────────────────────────
-    -- Simulasi segitiga dengan Frame dirotasi 45° (diamond)
+    -- ── EKOR PIN (diamond ke bawah) ──────────────────────────────────────
     local tail = Instance.new("Frame")
     tail.Name = "PinTail"
-    tail.Size = UDim2.new(0, 16, 0, 16)
-    tail.Position = UDim2.new(0.5, -8, 0, 26) -- sedikit overlap ke bawah lingkaran
+    tail.Size = UDim2.new(0, TAIL_SIZE, 0, TAIL_SIZE)
+    tail.Position = UDim2.new(0.5, -TAIL_SIZE / 2, 0, TAIL_Y)
     tail.BackgroundColor3 = target.color
     tail.BorderSizePixel = 0
     tail.Rotation = 45
-    tail.ZIndex = 1 -- di belakang lingkaran
+    tail.ZIndex = 1
     tail.Parent = billboard
 
     -- ── LABEL NAMA/ROLE ───────────────────────────────────────────────────
     local labelBg = Instance.new("Frame")
     labelBg.Name = "LabelBg"
-    labelBg.Size = UDim2.new(0, 72, 0, 20)
-    labelBg.Position = UDim2.new(0.5, -36, 0, 44) -- di bawah ekor pin
+    labelBg.Size = UDim2.new(0, LABEL_WIDTH, 0, LABEL_HEIGHT)
+    labelBg.Position = UDim2.new(0.5, -LABEL_WIDTH / 2, 0, LABEL_Y)
     labelBg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
     labelBg.BackgroundTransparency = 0.3
     labelBg.BorderSizePixel = 0
@@ -267,21 +281,19 @@ local function createMapPin(player, target)
     label.Parent = labelBg
 
     -- ── ANIMASI BOUNCE PIN ────────────────────────────────────────────────
+    -- Semua elemen ikut naik/turun bareng dengan jarak tetap, jadi gak ada yang "lepas" dari body pin.
     task.spawn(function()
-        local up   = UDim2.new(0, -18, 0, -4)   -- naik sedikit
-        local down = UDim2.new(0, -18, 0, 0)     -- posisi normal
-
         while billboard.Parent do
-            doTween(pinBody, {Position = up},   0.5)
-            doTween(tail,    {Position = UDim2.new(0.5, -8, 0, 22)}, 0.5)
+            doTween(pinBody, {Position = UDim2.new(0.5, -PIN_SIZE / 2, 0, PIN_Y - BOUNCE_OFFSET)}, 0.5)
+            doTween(tail,    {Position = UDim2.new(0.5, -TAIL_SIZE / 2, 0, TAIL_Y - BOUNCE_OFFSET)}, 0.5)
             task.wait(0.5)
-            doTween(pinBody, {Position = down},  0.5)
-            doTween(tail,    {Position = UDim2.new(0.5, -8, 0, 26)}, 0.5)
+            doTween(pinBody, {Position = UDim2.new(0.5, -PIN_SIZE / 2, 0, PIN_Y)}, 0.5)
+            doTween(tail,    {Position = UDim2.new(0.5, -TAIL_SIZE / 2, 0, TAIL_Y)}, 0.5)
             task.wait(0.5)
         end
     end)
 
-    print("[TeamESP] ✓ Map pin created for: " .. player.Name .. " [" .. target.text .. "]")
+    print("[TeamESP] Map pin created for: " .. player.Name .. " [" .. target.text .. "]")
 end
 
 -- ================= CLEANUP NON-TARGETS =================
@@ -306,7 +318,6 @@ end
 task.spawn(function()
     task.wait(2)
 
-    -- Debug: list players
     print("================================================")
     print("[TeamESP] Players in server:")
     for _, p in ipairs(Players:GetPlayers()) do
@@ -351,7 +362,6 @@ Players.PlayerAdded:Connect(function(player)
                     createMapPin(player, target)
                 end
             end)
-            -- Jika sudah punya karakter saat join
             if player.Character then
                 task.wait(1)
                 createMapPin(player, target)
@@ -608,262 +618,256 @@ local selectedPlayer=nil;local isLocked=true;local passEntry="";local isCloning=
 local lastAutoLockTime = tick()
 
 -- ================= GUI ROOT =================
-local gui=Instance.new("ScreenGui");gui.Name="PhoneGUI";gui.ResetOnSpawn=false;gui.IgnoreGuiInset=true;gui.DisplayOrder=998;gui.ZIndexBehavior=Enum.ZIndexBehavior.Global
+-- ==================== GUI ROOT ====================
+local gui = Instance.new("ScreenGui")
+gui.Name = "PhoneGUI"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.DisplayOrder = 998
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+
 local function getGuiParent()
-    local ok,r=pcall(function()if gethui then return gethui()end;if syn and syn.protect_gui then local sg=Instance.new("ScreenGui");syn.protect_gui(sg);sg.Parent=game:GetService("CoreGui");return sg end;return game:GetService("CoreGui")end)
+    local ok, r = pcall(function()
+        if gethui then return gethui() end
+        if syn and syn.protect_gui then
+            local sg = Instance.new("ScreenGui")
+            syn.protect_gui(sg)
+            sg.Parent = game:GetService("CoreGui")
+            return sg
+        end
+        return game:GetService("CoreGui")
+    end)
     return ok and r or game:GetService("CoreGui")
 end
-gui.Parent=getGuiParent()
+gui.Parent = getGuiParent()
 
-local phone=Instance.new("Frame",gui);phone.Size=UDim2.new(0,0,0,0);phone.Position=UDim2.new(0.5,0,0.52,0);phone.AnchorPoint=Vector2.new(0.5,0.5);phone.BackgroundColor3=appSettings.bgColor or T.BG;phone.BorderSizePixel=0;phone.Visible=false;phone.ClipsDescendants=true;corner(phone,38);phone.BackgroundTransparency=1-(appSettings.phoneOpacity or 1)
-local phoneStroke=stroke(phone,T.Accent,2,appSettings.glowEnabled and 0.5 or 0.15)
-if appSettings.bgGradient then gradient(phone,ColorSequence.new{ColorSequenceKeypoint.new(0,Color3.fromRGB(250,250,250)),ColorSequenceKeypoint.new(1,Color3.fromRGB(230,230,230))},100) end
-local PHONE_SIZE_PORTRAIT=UDim2.new(0,320,0,560)
-local PHONE_SIZE_LANDSCAPE=UDim2.new(0,170,0,298)
-local PHONE_SIZE=PHONE_SIZE_PORTRAIT
-local isLandscapeMode=nil
+-- ==================== PHONE FRAME ====================
+local phone = Instance.new("Frame", gui)
+phone.Size = UDim2.new(0, 0, 0, 0)
+phone.Position = UDim2.new(0.5, 0, 0.52, 0)
+phone.AnchorPoint = Vector2.new(0.5, 0.5)
+phone.BackgroundColor3 = appSettings.bgColor or T.BG
+phone.BorderSizePixel = 0
+phone.Visible = false
+phone.ClipsDescendants = true
+corner(phone, 38)
+phone.BackgroundTransparency = 1 - (appSettings.phoneOpacity or 1)
+
+local phoneStroke = stroke(phone, T.Accent, 2, appSettings.glowEnabled and 0.5 or 0.15)
+if appSettings.bgGradient then
+    gradient(phone, ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(250, 250, 250)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(230, 230, 230))
+    }, 100)
+end
+
+-- ==================== ORIENTASI ====================
+local PHONE_SIZE_PORTRAIT = UDim2.new(0, 320, 0, 560)
+local PHONE_SIZE = PHONE_SIZE_PORTRAIT
+local isLandscapeMode = false
+
 local function applyPhoneOrientationSize()
-    local cam=Workspace.CurrentCamera;if not cam then return end
-    local vp=cam.ViewportSize;if vp.X<=0 or vp.Y<=0 then return end
-    local landscape=vp.X>vp.Y
-    if landscape==isLandscapeMode then return end
-    isLandscapeMode=landscape
-    if landscape then PHONE_SIZE=PHONE_SIZE_LANDSCAPE;local halfW,halfH=PHONE_SIZE.X.Offset/2,PHONE_SIZE.Y.Offset/2;phone.Position=UDim2.new(1,-halfW-14,1,-halfH-14)
-    else PHONE_SIZE=PHONE_SIZE_PORTRAIT;phone.Position=UDim2.new(0.5,0,0.52,0) end
-    if phone.Visible then tween(phone,{Size=PHONE_SIZE,Position=phone.Position},0.3,Enum.EasingStyle.Quart) end
-end
-local function isPortrait()local cam=Workspace.CurrentCamera;if not cam then return true end;local vp=cam.ViewportSize;return vp.Y>=vp.X end
-local function getGridIconSize()return isPortrait()and UDim2.new(0,72,0,86)or UDim2.new(0,68,0,82)end
-
--- ================= FORCE PORTRAIT MODE =================
--- Taruh di bagian atas script (setelah GUI ROOT dibuat)
-
--- Fungsi untuk mendapatkan ukuran layar
-local function getScreenSize()
     local cam = Workspace.CurrentCamera
-    if not cam then return Vector2.new(1920, 1080) end
-    return cam.ViewportSize
-end
-
--- Fungsi cek apakah landscape
-local function isLandscapeMode()
-    local size = getScreenSize()
-    return size.X > size.Y
-end
-
--- Fungsi untuk menampilkan peringatan landscape
-local function showLandscapeWarning()
-    -- Sembunyikan phone dulu
-    if phone.Visible then
-        closePhone()
-    end
+    if not cam then return end
+    local vp = cam.ViewportSize
+    if vp.X <= 0 or vp.Y <= 0 then return end
     
-    -- Buat warning GUI
-    local warningGui = Instance.new("ScreenGui")
-    warningGui.Name = "LandscapeWarning"
-    warningGui.ResetOnSpawn = false
-    warningGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    warningGui.DisplayOrder = 9999
+    local landscape = vp.X > vp.Y
     
-    pcall(function() warningGui.Parent = getGuiParent() end)
-    if not warningGui.Parent then warningGui.Parent = game:GetService("CoreGui") end
-    
-    -- Overlay gelap
-    local overlay = Instance.new("Frame", warningGui)
-    overlay.Size = UDim2.new(1, 0, 1, 0)
-    overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    overlay.BackgroundTransparency = 0.7
-    overlay.ZIndex = 10000
-    
-    -- Card peringatan
-    local card = Instance.new("Frame", overlay)
-    card.Size = UDim2.new(0, 280, 0, 200)
-    card.Position = UDim2.new(0.5, -140, 0.5, -100)
-    card.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-    card.ZIndex = 10001
-    corner(card, 16)
-    stroke(card, Color3.fromRGB(255, 200, 50), 2, 0)
-    
-    -- Icon rotate
-    local iconFrame = Instance.new("Frame", card)
-    iconFrame.Size = UDim2.new(0, 60, 0, 60)
-    iconFrame.Position = UDim2.new(0.5, -30, 0, 20)
-    iconFrame.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
-    iconFrame.BackgroundTransparency = 0.85
-    iconFrame.ZIndex = 10002
-    corner(iconFrame, 100)
-    
-    -- Rotate icon (phone shape)
-    local phoneIcon = Instance.new("Frame", iconFrame)
-    phoneIcon.Size = UDim2.new(0, 24, 0, 40)
-    phoneIcon.Position = UDim2.new(0.5, -12, 0.5, -20)
-    phoneIcon.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
-    phoneIcon.ZIndex = 10003
-    corner(phoneIcon, 6)
-    
-    -- Screen
-    local screen = Instance.new("Frame", phoneIcon)
-    screen.Size = UDim2.new(0, 16, 0, 28)
-    screen.Position = UDim2.new(0.5, -8, 0.5, -14)
-    screen.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-    screen.ZIndex = 10004
-    corner(screen, 3)
-    
-    -- Rotate arrow
-    local arrow = Instance.new("Frame", iconFrame)
-    arrow.Size = UDim2.new(0, 20, 0, 3)
-    arrow.Position = UDim2.new(0.5, 14, 0.5, -1)
-    arrow.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
-    arrow.Rotation = 90
-    arrow.ZIndex = 10003
-    corner(arrow, 2)
-    
-    local arrowTip = Instance.new("Frame", iconFrame)
-    arrowTip.Size = UDim2.new(0, 6, 0, 6)
-    arrowTip.Position = UDim2.new(0.5, 20, 0.5, -3)
-    arrowTip.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
-    arrowTip.Rotation = 45
-    arrowTip.ZIndex = 10003
-    corner(arrowTip, 2)
-    
-    -- Title
-    local title = Instance.new("TextLabel", card)
-    title.Size = UDim2.new(1, -20, 0, 26)
-    title.Position = UDim2.new(0, 10, 0, 85)
-    title.BackgroundTransparency = 1
-    title.Text = "PUTAR HP KAMU"
-    title.TextColor3 = Color3.fromRGB(255, 200, 50)
-    title.Font = Enum.Font.GothamBlack
-    title.TextSize = 16
-    title.ZIndex = 10002
-    
-    -- Message
-    local msg = Instance.new("TextLabel", card)
-    msg.Size = UDim2.new(1, -20, 0, 40)
-    msg.Position = UDim2.new(0, 10, 0, 112)
-    msg.BackgroundTransparency = 1
-    msg.Text = "Phone ID Viewer hanya berjalan\ndalam mode POTRET / VERTIKAL\n\nSilakan putar HP kamu"
-    msg.TextColor3 = Color3.fromRGB(180, 180, 190)
-    msg.Font = Enum.Font.Gotham
-    msg.TextSize = 11
-    msg.TextWrapped = true
-    msg.TextXAlignment = Enum.TextXAlignment.Center
-    msg.ZIndex = 10002
-    msg.LineHeight = 1.2
-    
-    -- Auto-check: jika sudah portrait, hapus warning
-    task.spawn(function()
-        while warningGui.Parent do
-            task.wait(0.5)
-            
-            if not isLandscapeMode() then
-                -- HP sudah diputar ke portrait
-                warningGui:Destroy()
-                
-                -- Auto-buka phone
-                task.wait(0.3)
-                if not phone.Visible then
-                    openPhone()
-                end
-                showDynamicNotification("Phone ready!", T.Green)
-                break
-            end
-        end
-    end)
-    
-    return warningGui
-end
-
--- ================= MONITOR ORIENTASI =================
-task.spawn(function()
-    task.wait(1) -- Tunggu 1 detik setelah script load
-    
-    -- Cek orientasi awal
-    if isLandscapeMode() then
-        showLandscapeWarning()
-    end
-    
-    -- Monitor terus menerus
-    while true do
-        task.wait(1)
+    if landscape then
+        local phoneWidth = math.floor(vp.X * 0.55)
+        local phoneHeight = math.floor(vp.Y * 0.75)
+        if phoneWidth > phoneHeight * 1.7 then phoneWidth = math.floor(phoneHeight * 1.7) end
+        if phoneWidth < 250 then phoneWidth = 250 end
+        if phoneHeight < 140 then phoneHeight = 140 end
         
-        if isLandscapeMode() then
-            if phone.Visible then
-                closePhone()
-            end
-            
-            -- Cek apakah warning sudah ada
-            local existingWarning = nil
-            pcall(function()
-                local parent = getGuiParent() or game:GetService("CoreGui")
-                existingWarning = parent:FindFirstChild("LandscapeWarning")
-            end)
-            
-            if not existingWarning then
-                showLandscapeWarning()
-            end
-        else
-            -- Portrait mode - hapus warning jika ada
-            pcall(function()
-                local parent = getGuiParent() or game:GetService("CoreGui")
-                local warning = parent:FindFirstChild("LandscapeWarning")
-                if warning then
-                    warning:Destroy()
-                end
-            end)
-            
-            -- Buka phone jika belum terbuka
-            if not phone.Visible and phoneTool and toolEquipped then
-                task.wait(0.3)
-                openPhone()
-            end
-        end
+        PHONE_SIZE = UDim2.new(0, phoneWidth, 0, phoneHeight)
+        phone.Position = UDim2.new(0.5, 0, 0.5, 0)
+        isLandscapeMode = true
+    else
+        PHONE_SIZE = PHONE_SIZE_PORTRAIT
+        phone.Position = UDim2.new(0.5, 0, 0.52, 0)
+        isLandscapeMode = false
+    end
+    
+    -- Update screen area & home screen
+    updateScreenAreaForOrientation()
+    updateHomeForOrientation()
+    
+    if phone.Visible then
+        tween(phone, {Size = PHONE_SIZE, Position = phone.Position}, 0.3, Enum.EasingStyle.Quart)
+    end
+end
+
+local function isPortrait()
+    local cam = Workspace.CurrentCamera
+    if not cam then return true end
+    return cam.ViewportSize.Y >= cam.ViewportSize.X
+end
+
+local function getGridIconSize()
+    if isPortrait() then
+        return UDim2.new(0, 72, 0, 86)
+    else
+        return UDim2.new(0, 68, 0, 78)
+    end
+end
+
+-- ==================== SCREEN AREA ====================
+local sa = Instance.new("Frame", phone)
+sa.Size = UDim2.new(1, -16, 1, -16)
+sa.Position = UDim2.new(0, 8, 0, 8)
+sa.BackgroundColor3 = T.BG
+sa.BorderSizePixel = 0
+sa.ClipsDescendants = true
+corner(sa, 30)
+
+local sb = Instance.new("Frame", sa)
+sb.Size = UDim2.new(1, 0, 0, 34)
+sb.BackgroundTransparency = 1
+sb.ZIndex = 100
+
+local clockLbl = Instance.new("TextLabel", sb)
+clockLbl.Size = UDim2.new(0, 80, 1, 0)
+clockLbl.Position = UDim2.new(0, 14, 0, 0)
+clockLbl.BackgroundTransparency = 1
+clockLbl.Text = os.date("%H:%M")
+clockLbl.TextColor3 = T.Text
+clockLbl.Font = Enum.Font.GothamBold
+clockLbl.TextSize = 13
+clockLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+task.spawn(function()
+    while clockLbl.Parent do
+        clockLbl.Text = os.date("%H:%M")
+        task.wait(30)
     end
 end)
+-- Signal bars di status bar tablet
+local sbSignal = Instance.new("Frame", sb)
+sbSignal.Size = UDim2.new(0, 20, 0, 14)
+sbSignal.Position = UDim2.new(1, -80, 0.5, -7)
+sbSignal.BackgroundTransparency = 1
+sbSignal.ZIndex = 102
 
--- ================= OVERRIDE OPEN PHONE =================
-local originalOpenPhone = openPhone
-openPhone = function()
-    if isLandscapeMode() then
-        showLandscapeWarning()
-        return
-    end
-    originalOpenPhone()
+for i = 1, 4 do
+    local bar = Instance.new("Frame", sbSignal)
+    bar.Size = UDim2.new(0, 3, 0, 3 + i * 2)
+    bar.Position = UDim2.new(0, (i-1) * 5, 1, 0)
+    bar.AnchorPoint = Vector2.new(0, 1)
+    bar.BackgroundColor3 = T.Text
+    bar.BorderSizePixel = 0
+    bar.ZIndex = 103
+    corner(bar, 1)
 end
 
--- ================= FORCE PORTRAIT SIZE =================
-local originalApplySize = applyPhoneOrientationSize
-applyPhoneOrientationSize = function()
-    -- Selalu pakai portrait size
-    PHONE_SIZE = PHONE_SIZE_PORTRAIT
-    phone.Position = UDim2.new(0.5, 0, 0.52, 0)
-    
-    if phone.Visible then
-        phone.Size = PHONE_SIZE
-    end
-end
+-- Battery di status bar tablet
+local sbBatFrame = Instance.new("Frame", sb)
+sbBatFrame.Size = UDim2.new(0, 26, 0, 14)
+sbBatFrame.Position = UDim2.new(1, -50, 0.5, -7)
+sbBatFrame.BackgroundTransparency = 1
+sbBatFrame.ZIndex = 102
 
-print("[Phone ID Viewer] Auto-Portrait mode active!")
+local sbBatBody = Instance.new("Frame", sbBatFrame)
+sbBatBody.Size = UDim2.new(0, 20, 0, 12)
+sbBatBody.Position = UDim2.new(0, 0, 0.5, -6)
+sbBatBody.BackgroundColor3 = T.Text
+sbBatBody.BackgroundTransparency = 0.85
+sbBatBody.BorderSizePixel = 0
+sbBatBody.ZIndex = 103
+corner(sbBatBody, 3)
+stroke(sbBatBody, T.Text, 1, 0.3)
 
--- ================= SCREEN AREA =================
-local sa=Instance.new("Frame",phone);sa.Size=UDim2.new(1,-16,1,-16);sa.Position=UDim2.new(0,8,0,8);sa.BackgroundColor3=T.BG;sa.BorderSizePixel=0;sa.ClipsDescendants=true;corner(sa,30)
+local sbBatFill = Instance.new("Frame", sbBatBody)
+sbBatFill.Size = UDim2.new(0.75, -2, 1, -4)
+sbBatFill.Position = UDim2.new(0, 1, 0, 2)
+sbBatFill.BackgroundColor3 = T.Text
+sbBatFill.BorderSizePixel = 0
+sbBatFill.ZIndex = 104
+corner(sbBatFill, 2)
 
--- Status bar
-local sb=Instance.new("Frame",sa);sb.Size=UDim2.new(1,0,0,34);sb.BackgroundTransparency=1;sb.ZIndex=100
-local clockLbl=Instance.new("TextLabel",sb);clockLbl.Size=UDim2.new(0,80,1,0);clockLbl.Position=UDim2.new(0,14,0,0);clockLbl.BackgroundTransparency=1;clockLbl.Text=os.date("%H:%M");clockLbl.TextColor3=T.Text;clockLbl.Font=Enum.Font.GothamBold;clockLbl.TextSize=13;clockLbl.TextXAlignment=Enum.TextXAlignment.Left
-task.spawn(function()while clockLbl.Parent do clockLbl.Text=os.date("%H:%M");task.wait(30)end end)
-local sig=Instance.new("Frame",sb);sig.Size=UDim2.new(0,20,0,10);sig.Position=UDim2.new(1,-55,0.5,-5);sig.BackgroundTransparency=1
-for i=1,4 do local b=Instance.new("Frame",sig);b.Size=UDim2.new(0,3,0,2+i*2);b.Position=UDim2.new(0,(i-1)*5,1,-(2+i*2));b.BackgroundColor3=T.Text;corner(b,1)end
-local batt=Instance.new("Frame",sb);batt.Size=UDim2.new(0,20,0,10);batt.Position=UDim2.new(1,-26,0.5,-5);batt.BackgroundTransparency=1;stroke(batt,T.Text,1,0);corner(batt,3)
-local bf=Instance.new("Frame",batt);bf.Size=UDim2.new(0.75,0,1,-4);bf.Position=UDim2.new(0,2,0,2);bf.BackgroundColor3=T.Text;corner(bf,2)
-local bt=Instance.new("Frame",sb);bt.Size=UDim2.new(0,2,0,4);bt.Position=UDim2.new(1,-6,0.5,-2);bt.BackgroundColor3=T.Text;corner(bt,1)
+local sbBatTip = Instance.new("Frame", sbBatFrame)
+sbBatTip.Size = UDim2.new(0, 3, 0, 5)
+sbBatTip.Position = UDim2.new(0, 21, 0.5, -2)
+sbBatTip.BackgroundColor3 = T.Text
+sbBatTip.BackgroundTransparency = 0.5
+sbBatTip.BorderSizePixel = 0
+sbBatTip.ZIndex = 103
+corner(sbBatTip, 1)
 
 -- Dynamic Island
-local di=Instance.new("Frame",sa);di.Size=UDim2.new(0,90,0,24);di.Position=UDim2.new(0.5,-45,0,4);di.BackgroundColor3=Color3.new(0,0,0);di.ZIndex=110;corner(di,100)
-local diStroke=stroke(di,Color3.new(1,1,1),1.5,0.6)
-local dil=Instance.new("TextLabel",di);dil.Size=UDim2.new(1,-8,1,0);dil.Position=UDim2.new(0,4,0,0);dil.BackgroundTransparency=1;dil.Text="";dil.TextColor3=Color3.new(1,1,1);dil.Font=Enum.Font.GothamBold;dil.TextSize=14;dil.TextXAlignment=Enum.TextXAlignment.Center;dil.TextScaled=false;dil.ZIndex=111
-local dib=Instance.new("TextButton",di);dib.Size=UDim2.new(1,0,1,0);dib.BackgroundTransparency=1;dib.Text="";dib.ZIndex=42
-local bunkerBarLbl=Instance.new("TextLabel",sa);bunkerBarLbl.Size=UDim2.new(1,0,0,14);bunkerBarLbl.Position=UDim2.new(0,0,0,30);bunkerBarLbl.BackgroundTransparency=1;bunkerBarLbl.Text="The Bunker";bunkerBarLbl.TextColor3=Color3.fromRGB(140,140,140);bunkerBarLbl.Font=Enum.Font.Gotham;bunkerBarLbl.TextSize=10;bunkerBarLbl.TextXAlignment=Enum.TextXAlignment.Center;bunkerBarLbl.ZIndex=101
+local di = Instance.new("Frame", sa)
+di.Size = UDim2.new(0, 90, 0, 24)
+di.Position = UDim2.new(0.5, -45, 0, 4)
+di.BackgroundColor3 = Color3.new(0, 0, 0)
+di.ZIndex = 110
+corner(di, 100)
+
+local diStroke = stroke(di, Color3.new(1, 1, 1), 1.5, 0.6)
+local dil = Instance.new("TextLabel", di)
+dil.Size = UDim2.new(1, -8, 1, 0)
+dil.Position = UDim2.new(0, 4, 0, 0)
+dil.BackgroundTransparency = 1
+dil.Text = ""
+dil.TextColor3 = Color3.new(1, 1, 1)
+dil.Font = Enum.Font.GothamBold
+dil.TextSize = 14
+dil.TextXAlignment = Enum.TextXAlignment.Center
+dil.ZIndex = 111
+
+local dib = Instance.new("TextButton", di)
+dib.Size = UDim2.new(1, 0, 1, 0)
+dib.BackgroundTransparency = 1
+dib.Text = ""
+dib.ZIndex = 42
+
+local bunkerBarLbl = Instance.new("TextLabel", sa)
+bunkerBarLbl.Size = UDim2.new(1, 0, 0, 14)
+bunkerBarLbl.Position = UDim2.new(0, 0, 0, 30)
+bunkerBarLbl.BackgroundTransparency = 1
+bunkerBarLbl.Text = "The Bunker"
+bunkerBarLbl.TextColor3 = Color3.fromRGB(140, 140, 140)
+bunkerBarLbl.Font = Enum.Font.Gotham
+bunkerBarLbl.TextSize = 9
+bunkerBarLbl.TextXAlignment = Enum.TextXAlignment.Center
+bunkerBarLbl.ZIndex = 101
+
+-- ==================== UPDATE SCREEN AREA UNTUK LANDSCAPE ====================
+local function updateScreenAreaForOrientation()
+    local portrait = isPortrait()
+    
+    if portrait then
+        sa.Size = UDim2.new(1, -16, 1, -16)
+        sa.Position = UDim2.new(0, 8, 0, 8)
+        corner(sa, 30)
+        
+        sb.Size = UDim2.new(1, 0, 0, 34)
+        clockLbl.Size = UDim2.new(0, 80, 1, 0)
+        clockLbl.Position = UDim2.new(0, 14, 0, 0)
+        clockLbl.TextSize = 13
+        
+        di.Size = UDim2.new(0, 90, 0, 24)
+        di.Position = UDim2.new(0.5, -45, 0, 4)
+        bunkerBarLbl.Position = UDim2.new(0, 0, 0, 30)
+        bunkerBarLbl.TextSize = 9
+    else
+        local padding = math.floor(PHONE_SIZE.X.Offset * 0.025)
+        sa.Size = UDim2.new(1, -padding*2, 1, -padding*2)
+        sa.Position = UDim2.new(0, padding, 0, padding)
+        corner(sa, math.floor(PHONE_SIZE.X.Offset * 0.05))
+        
+        sb.Size = UDim2.new(1, 0, 0, 24)
+        clockLbl.Size = UDim2.new(0, 50, 1, 0)
+        clockLbl.Position = UDim2.new(0, 8, 0, 0)
+        clockLbl.TextSize = 10
+        
+        local diW = math.floor(PHONE_SIZE.X.Offset * 0.18)
+        di.Size = UDim2.new(0, diW, 0, math.floor(PHONE_SIZE.Y.Offset * 0.045))
+        di.Position = UDim2.new(0.5, -diW/2, 0, padding)
+        bunkerBarLbl.Position = UDim2.new(0, 0, 0, 20)
+        bunkerBarLbl.TextSize = 7
+    end
+end
 
 -- ================= DYNAMIC BAR =================
 local iid=0;local notifyQueue={};local isNotifying=false
@@ -911,19 +915,153 @@ function showPass() lock.Visible=false;pass.Visible=true;passEntry="";updateDots
 function hidePass() pass.Visible=false;lock.Visible=true end
 function unlock() isLocked=false;lock.Visible=false;pass.Visible=false;lastAutoLockTime = tick();goHome()end
 
--- ================= HOME SCREEN =================
-local sh=Instance.new("Frame",sa);sh.Size=UDim2.new(1,0,1,-60);sh.Position=UDim2.new(0,0,0,34);sh.BackgroundTransparency=1;sh.ClipsDescendants=true
-local home=Instance.new("Frame",sh);home.Size=UDim2.new(1,0,1,0);home.BackgroundTransparency=1;home.ClipsDescendants=true
-local homeWall=Instance.new("Frame",home);homeWall.Size=UDim2.new(1,0,1,0);homeWall.BackgroundColor3=appSettings.bgColor or Color3.fromRGB(240,240,250);homeWall.ZIndex=0;corner(homeWall,30)
-if appSettings.bgGradient then gradient(homeWall,ColorSequence.new{ColorSequenceKeypoint.new(0,Color3.fromRGB(220,220,240)),ColorSequenceKeypoint.new(1,Color3.fromRGB(250,250,255))},135) end
+-- ==================== HOME SCREEN ====================
+local sh = Instance.new("Frame", sa)
+sh.Size = UDim2.new(1, 0, 1, -60)
+sh.Position = UDim2.new(0, 0, 0, 34)
+sh.BackgroundTransparency = 1
+sh.ClipsDescendants = true
 
-local dockArea=Instance.new("Frame",home);dockArea.Size=UDim2.new(0,224,0,64);dockArea.Position=UDim2.new(0.5,-112,1,-84);dockArea.BackgroundTransparency=1;dockArea.ZIndex=5
-local dockBg=Instance.new("Frame",dockArea);dockBg.Size=UDim2.new(1,0,0,56);dockBg.Position=UDim2.new(0,0,0,4);dockBg.BackgroundColor3=Color3.fromRGB(255,255,255);dockBg.BackgroundTransparency=0.1;corner(dockBg,20)
-local dockGrid=Instance.new("UIGridLayout",dockBg);dockGrid.CellSize=UDim2.new(0,70,0,50);dockGrid.CellPadding=UDim2.new(0,2,0,0);dockGrid.HorizontalAlignment=Enum.HorizontalAlignment.Center;dockGrid.VerticalAlignment=Enum.VerticalAlignment.Center;dockGrid.FillDirection=Enum.FillDirection.Horizontal
-local appGrid=Instance.new("ScrollingFrame",home);appGrid.Size=UDim2.new(1,-16,1,-156);appGrid.Position=UDim2.new(0,8,0,70);appGrid.BackgroundTransparency=1;appGrid.ScrollBarThickness=3;appGrid.ScrollBarImageColor3=T.Accent;appGrid.CanvasSize=UDim2.new(0,0,0,0);appGrid.AutomaticCanvasSize=Enum.AutomaticSize.Y;appGrid.BorderSizePixel=0
-local gridLayout=Instance.new("UIGridLayout",appGrid);gridLayout.CellSize=getGridIconSize();gridLayout.CellPadding=UDim2.new(0,10,0,12);gridLayout.SortOrder=Enum.SortOrder.LayoutOrder;gridLayout.HorizontalAlignment=Enum.HorizontalAlignment.Center;gridLayout.VerticalAlignment=Enum.VerticalAlignment.Top
-task.spawn(function()local last=isPortrait();while true do task.wait(0.5);local cur=isPortrait();if cur~=last then last=cur;gridLayout.CellSize=getGridIconSize()end end end)
-local bunkerHome=Instance.new("TextLabel",home);bunkerHome.Size=UDim2.new(0,200,0,14);bunkerHome.Position=UDim2.new(0.5,-100,1,-20);bunkerHome.BackgroundTransparency=1;bunkerHome.Text="The Bunker";bunkerHome.TextColor3=Color3.fromRGB(180,180,200);bunkerHome.Font=Enum.Font.Gotham;bunkerHome.TextSize=10;bunkerHome.TextXAlignment=Enum.TextXAlignment.Center;bunkerHome.ZIndex=10
+local home = Instance.new("Frame", sh)
+home.Size = UDim2.new(1, 0, 1, 0)
+home.BackgroundTransparency = 1
+home.ClipsDescendants = true
+
+local homeWall = Instance.new("Frame", home)
+homeWall.Size = UDim2.new(1, 0, 1, 0)
+homeWall.BackgroundColor3 = appSettings.bgColor or Color3.fromRGB(240, 240, 250)
+homeWall.ZIndex = 0
+corner(homeWall, 30)
+if appSettings.bgGradient then
+    gradient(homeWall, ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(220, 220, 240)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(250, 250, 255))
+    }, 135)
+end
+
+-- Dock
+local dockArea = Instance.new("Frame", home)
+dockArea.Size = UDim2.new(0, 224, 0, 64)
+dockArea.Position = UDim2.new(0.5, -112, 1, -84)
+dockArea.BackgroundTransparency = 1
+dockArea.ZIndex = 5
+
+local dockBg = Instance.new("Frame", dockArea)
+dockBg.Size = UDim2.new(1, 0, 0, 56)
+dockBg.Position = UDim2.new(0, 0, 0, 4)
+dockBg.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+dockBg.BackgroundTransparency = 0.1
+corner(dockBg, 20)
+
+local dockGrid = Instance.new("UIGridLayout", dockBg)
+dockGrid.CellSize = UDim2.new(0, 70, 0, 50)
+dockGrid.CellPadding = UDim2.new(0, 2, 0, 0)
+dockGrid.HorizontalAlignment = Enum.HorizontalAlignment.Center
+dockGrid.VerticalAlignment = Enum.VerticalAlignment.Center
+dockGrid.FillDirection = Enum.FillDirection.Horizontal
+
+-- App Grid
+local appGrid = Instance.new("ScrollingFrame", home)
+appGrid.Size = UDim2.new(1, -16, 1, -156)
+appGrid.Position = UDim2.new(0, 8, 0, 70)
+appGrid.BackgroundTransparency = 1
+appGrid.ScrollBarThickness = 3
+appGrid.ScrollBarImageColor3 = T.Accent
+appGrid.CanvasSize = UDim2.new(0, 0, 0, 0)
+appGrid.AutomaticCanvasSize = Enum.AutomaticSize.Y
+appGrid.BorderSizePixel = 0
+
+local gridLayout = Instance.new("UIGridLayout", appGrid)
+gridLayout.CellSize = getGridIconSize()
+gridLayout.CellPadding = UDim2.new(0, 10, 0, 12)
+gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
+gridLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+gridLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+
+-- Bunker text
+local bunkerHome = Instance.new("TextLabel", home)
+bunkerHome.Size = UDim2.new(0, 200, 0, 14)
+bunkerHome.Position = UDim2.new(0.5, -100, 1, -20)
+bunkerHome.BackgroundTransparency = 1
+bunkerHome.Text = "The Bunker"
+bunkerHome.TextColor3 = Color3.fromRGB(180, 180, 200)
+bunkerHome.Font = Enum.Font.Gotham
+bunkerHome.TextSize = 10
+bunkerHome.TextXAlignment = Enum.TextXAlignment.Center
+bunkerHome.ZIndex = 10
+
+-- ==================== UPDATE HOME UNTUK LANDSCAPE ====================
+local function updateHomeForOrientation()
+    local portrait = isPortrait()
+    
+    if portrait then
+        sh.Size = UDim2.new(1, 0, 1, -60)
+        sh.Position = UDim2.new(0, 0, 0, 34)
+        
+        appGrid.Size = UDim2.new(1, -16, 1, -156)
+        appGrid.Position = UDim2.new(0, 8, 0, 70)
+        gridLayout.CellPadding = UDim2.new(0, 8, 0, 16)
+        
+        dockArea.Size = UDim2.new(0, 224, 0, 64)
+        dockArea.Position = UDim2.new(0.5, -112, 1, -84)
+        dockBg.Size = UDim2.new(1, 0, 0, 56)
+        dockBg.Position = UDim2.new(0, 0, 0, 4)
+        dockGrid.CellSize = UDim2.new(0, 70, 0, 50)
+        
+        bunkerHome.Size = UDim2.new(0, 200, 0, 14)
+        bunkerHome.Position = UDim2.new(0.5, -100, 1, -20)
+        bunkerHome.TextSize = 10
+    else
+        sh.Size = UDim2.new(1, 0, 1, -44)
+        sh.Position = UDim2.new(0, 0, 0, 24)
+        
+        appGrid.Size = UDim2.new(1, -12, 1, -110)
+        appGrid.Position = UDim2.new(0, 6, 0, 46)
+        gridLayout.CellPadding = UDim2.new(0, 6, 0, 6)
+        
+        local dockW = math.floor(PHONE_SIZE.X.Offset * 0.55)
+        dockArea.Size = UDim2.new(0, dockW, 0, 46)
+        dockArea.Position = UDim2.new(0.5, -dockW/2, 1, -54)
+        dockBg.Size = UDim2.new(1, 0, 0, 40)
+        dockBg.Position = UDim2.new(0, 0, 0, 3)
+        dockGrid.CellSize = UDim2.new(0, math.floor(dockW/3.5), 0, 36)
+        
+        bunkerHome.Size = UDim2.new(0, 150, 0, 10)
+        bunkerHome.Position = UDim2.new(0.5, -75, 1, -12)
+        bunkerHome.TextSize = 7
+    end
+end
+
+-- Monitor orientasi
+task.spawn(function()
+    local lastPortrait = nil
+    while true do
+        task.wait(0.3)
+        local curPortrait = isPortrait()
+        if curPortrait ~= lastPortrait then
+            lastPortrait = curPortrait
+            gridLayout.CellSize = getGridIconSize()
+            updateHomeForOrientation()
+        end
+    end
+end)
+
+-- Monitor orientasi untuk phone size
+task.spawn(function()
+    local lastLandscape = nil
+    while true do
+        task.wait(0.3)
+        local cam = Workspace.CurrentCamera
+        if not cam then continue end
+        local isLand = cam.ViewportSize.X > cam.ViewportSize.Y
+        if isLand ~= lastLandscape then
+            lastLandscape = isLand
+            if phone.Visible then
+                applyPhoneOrientationSize()
+            end
+        end
+    end
+end)
 
 -- ================= ICON BUILDERS =================
 local iconBuilders = {
@@ -1558,7 +1696,7 @@ end,
 -- ================= BUILD APP ICON =================
 local function buildAppIcon(name, order, parent, onOpen)
     local container = Instance.new("Frame", parent)
-    container.Size = UDim2.new(0, 74, 0, 92)
+    container.Size = UDim2.new(0, 74, 0, 96)
     container.BackgroundTransparency = 1
     container.LayoutOrder = order
     
@@ -4229,44 +4367,6 @@ local function openSettingsApp()
     opReminder.TextColor3=T.Text2; opReminder.Font=Enum.Font.Gotham; opReminder.TextSize=8
     opReminder.TextXAlignment=Enum.TextXAlignment.Left
 
-    -- ================================================================
-    -- ⑤ SECTION: SOUND
-    -- ================================================================
-    makeSection(appContent, 9, "🔊", "Sound", "Configure audio settings")
-
-    local soundCard = makeCard(appContent, 10, 172)
-
-    local function makeSoundRow(parent, yPos, title, settingKey, updateFn)
-        local lbl = Instance.new("TextLabel", parent)
-        lbl.Size=UDim2.new(1,-24,0,18); lbl.Position=UDim2.new(0,12,0,yPos)
-        lbl.BackgroundTransparency=1; lbl.Text=title
-        lbl.TextColor3=T.Text; lbl.Font=Enum.Font.GothamBold; lbl.TextSize=12
-        lbl.TextXAlignment=Enum.TextXAlignment.Left
-
-        local tb = Instance.new("TextBox", parent)
-        tb.Size=UDim2.new(1,-100,0,32); tb.Position=UDim2.new(0,12,0,yPos+20)
-        tb.Text=appSettings[settingKey] or ""
-        tb.PlaceholderText="rbxassetid://..."
-        tb.BackgroundColor3=Color3.fromRGB(247,247,252)
-        tb.TextColor3=T.Text; tb.Font=Enum.Font.Code; tb.TextSize=10
-        tb.PlaceholderColor3=Color3.fromRGB(185,185,195)
-        corner(tb, 8); stroke(tb, Color3.fromRGB(222,222,230), 1, 0.2)
-
-        local applyBtn = Instance.new("TextButton", parent)
-        applyBtn.Size=UDim2.new(0,72,0,32); applyBtn.Position=UDim2.new(1,-84,0,yPos+20)
-        applyBtn.BackgroundColor3=T.Accent; applyBtn.Text="Apply"
-        applyBtn.TextColor3=T.OnAccent; applyBtn.Font=Enum.Font.GothamBold; applyBtn.TextSize=10
-        applyBtn.AutoButtonColor=false; corner(applyBtn, 8); pressFX(applyBtn)
-        applyBtn.MouseButton1Click:Connect(function()
-            appSettings[settingKey]=tb.Text; persistSettings()
-            if updateFn then updateFn() end
-            showDynamicNotification(title.." updated!", T.Green)
-        end)
-    end
-
-    makeSoundRow(soundCard, 10, "Background Music URL", "backgroundMusicUrl", updateBackgroundMusic)
-    makeDivider(soundCard, 88)
-    makeSoundRow(soundCard, 94, "Button Sound URL", "buttonSoundUrl", nil)
 
     -- ================================================================
     -- ⑥ SECTION: PREFERENCES
@@ -6494,10 +6594,10 @@ buildAppIcon("Bundle",13, appGrid, function() openApp("Bundle", openBundleApp) e
 buildAppIcon("AvatarItems",14, appGrid, function() openApp("Avatar & Items", openAvatarItemsApp) end)
 buildAppIcon("Lookup",15,appGrid, function() openApp("Player Lookup", openPlayerLookupApp) end)
 
--- ================= DRAG PHONE =================
-do local dragging,dragStart,startPos;sb.Active=true;sb.InputBegan:Connect(function(inp)if inp.UserInputType==Enum.UserInputType.MouseButton1 or inp.UserInputType==Enum.UserInputType.Touch then dragging=true;dragStart=inp.Position;startPos=phone.Position end end);sb.InputEnded:Connect(function(inp)if inp.UserInputType==Enum.UserInputType.MouseButton1 or inp.UserInputType==Enum.UserInputType.Touch then dragging=false end end);UserInputService.InputChanged:Connect(function(inp)if dragging and(inp.UserInputType==Enum.UserInputType.Touch or inp.UserInputType==Enum.UserInputType.MouseMovement)then local d=inp.Position-dragStart;phone.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+d.X,startPos.Y.Scale,startPos.Y.Offset+d.Y)end end)end
+-- ==================== FLOATING IPHONE ICON + TABLET MODE (FINAL FIXED) ====================
+-- GANTI seluruh bagian TOOL & EQUIP dan DRAG PHONE dengan ini
 
--- ================= FLOATING IPHONE ICON (FULL - PREMIUM B&W) =================
+-- ==================== VARIABLES ====================
 local phoneIcon = nil
 local mouseDown = false
 local mouseMoved = false
@@ -6505,6 +6605,51 @@ local dragStart = nil
 local iconStartPos = nil
 local toolEquipped = true
 
+-- ==================== ORIENTASI ====================
+local PHONE_SIZE_PORTRAIT = UDim2.new(0, 320, 0, 560)
+local PHONE_SIZE = PHONE_SIZE_PORTRAIT
+local isLandscapeMode = false
+
+local function isPortrait()
+    local cam = Workspace.CurrentCamera
+    if not cam then return true end
+    return cam.ViewportSize.Y >= cam.ViewportSize.X
+end
+
+local function getGridIconSize()
+    if isPortrait() then
+        return UDim2.new(0, 72, 0, 86)
+    else
+        return UDim2.new(0, 68, 0, 78)
+    end
+end
+
+local function applyPhoneOrientationSize()
+    local cam = Workspace.CurrentCamera
+    if not cam then return end
+    local vp = cam.ViewportSize
+    if vp.X <= 0 or vp.Y <= 0 then return end
+    
+    local landscape = vp.X > vp.Y
+    
+    if landscape then
+        local phoneW = math.min(vp.X - 10, 520)
+        local phoneH = math.min(vp.Y - 10, 320)
+        PHONE_SIZE = UDim2.new(0, phoneW, 0, phoneH)
+        phone.Position = UDim2.new(0.5, 0, 0.5, 0)
+        isLandscapeMode = true
+    else
+        PHONE_SIZE = PHONE_SIZE_PORTRAIT
+        phone.Position = UDim2.new(0.5, 0, 0.52, 0)
+        isLandscapeMode = false
+    end
+    
+    if phone.Visible then
+        tween(phone, {Size = PHONE_SIZE, Position = phone.Position}, 0.3, Enum.EasingStyle.Quart)
+    end
+end
+
+-- ==================== CREATE FLOATING ICON ====================
 local function createFloatingIcon()
     if phoneIcon then
         pcall(function() phoneIcon:Destroy() end)
@@ -6526,7 +6671,6 @@ local function createFloatingIcon()
         gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
     end
     
-    -- Container
     local iconContainer = Instance.new("Frame", gui)
     iconContainer.Size = UDim2.new(0, 65, 0, 105)
     iconContainer.Position = UDim2.new(0, 15, 0.5, -52)
@@ -6534,7 +6678,7 @@ local function createFloatingIcon()
     iconContainer.ZIndex = 1000
     iconContainer.AnchorPoint = Vector2.new(0, 0)
     
-    -- ==================== BODY IPHONE (HITAM ELEGAN) ====================
+    -- Body iPhone
     local phoneBody = Instance.new("Frame", iconContainer)
     phoneBody.Size = UDim2.new(0, 50, 0, 88)
     phoneBody.Position = UDim2.new(0.5, -25, 0.5, -44)
@@ -6543,7 +6687,6 @@ local function createFloatingIcon()
     corner(phoneBody, 12)
     stroke(phoneBody, Color3.fromRGB(45, 45, 50), 2, 0)
     
-    -- Gradient body (hitam metalik)
     local bodyGrad = Instance.new("UIGradient", phoneBody)
     bodyGrad.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 28, 32)),
@@ -6553,7 +6696,7 @@ local function createFloatingIcon()
     })
     bodyGrad.Rotation = 135
     
-    -- ==================== SCREEN ====================
+    -- Screen
     local screen = Instance.new("Frame", phoneBody)
     screen.Size = UDim2.new(1, -6, 1, -30)
     screen.Position = UDim2.new(0, 3, 0, 20)
@@ -6561,14 +6704,14 @@ local function createFloatingIcon()
     screen.ZIndex = 1002
     corner(screen, 8)
     
-    -- ==================== STATUS BAR (PREMIUM B&W) ====================
+    -- Status Bar
     local statusBar = Instance.new("Frame", screen)
     statusBar.Size = UDim2.new(1, 0, 0, 12)
     statusBar.Position = UDim2.new(0, 0, 0, 2)
     statusBar.BackgroundTransparency = 1
     statusBar.ZIndex = 1010
     
-    -- ===== SINYAL (KIRI) =====
+    -- Signal
     local signalFrame = Instance.new("Frame", statusBar)
     signalFrame.Size = UDim2.new(0, 15, 0, 10)
     signalFrame.Position = UDim2.new(0, 3, 0.5, -5)
@@ -6581,13 +6724,12 @@ local function createFloatingIcon()
         bar.Position = UDim2.new(0, (i-1) * 4, 1, 0)
         bar.AnchorPoint = Vector2.new(0, 1)
         bar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        bar.BackgroundTransparency = i == 4 and 0.1 or (4 - i) * 0.2
         bar.BorderSizePixel = 0
         bar.ZIndex = 1011
         corner(bar, 1)
     end
     
-    -- ===== JAM (TENGAH) =====
+    -- Time
     local timeLabel = Instance.new("TextLabel", statusBar)
     timeLabel.Size = UDim2.new(0, 24, 0, 12)
     timeLabel.Position = UDim2.new(0.5, -12, 0, 0)
@@ -6600,14 +6742,13 @@ local function createFloatingIcon()
     timeLabel.TextYAlignment = Enum.TextYAlignment.Center
     timeLabel.ZIndex = 1011
     
-    -- ===== BATERAI (KANAN) =====
+    -- Battery
     local batteryFrame = Instance.new("Frame", statusBar)
     batteryFrame.Size = UDim2.new(0, 18, 0, 10)
     batteryFrame.Position = UDim2.new(1, -20, 0.5, -5)
     batteryFrame.BackgroundTransparency = 1
     batteryFrame.ZIndex = 1011
     
-    -- Body baterai
     local batteryBody = Instance.new("Frame", batteryFrame)
     batteryBody.Size = UDim2.new(0, 14, 0, 8)
     batteryBody.Position = UDim2.new(0, 0, 0.5, -4)
@@ -6618,7 +6759,6 @@ local function createFloatingIcon()
     corner(batteryBody, 3)
     stroke(batteryBody, Color3.fromRGB(255, 255, 255), 1, 0.3)
     
-    -- Isi baterai
     local batteryFill = Instance.new("Frame", batteryBody)
     batteryFill.Size = UDim2.new(0.7, -2, 1, -4)
     batteryFill.Position = UDim2.new(0, 1, 0, 2)
@@ -6627,7 +6767,6 @@ local function createFloatingIcon()
     batteryFill.ZIndex = 1012
     corner(batteryFill, 2)
     
-    -- Ujung baterai
     local batteryTip = Instance.new("Frame", batteryFrame)
     batteryTip.Size = UDim2.new(0, 2.5, 0, 4)
     batteryTip.Position = UDim2.new(1, -1, 0.5, -2)
@@ -6637,7 +6776,7 @@ local function createFloatingIcon()
     batteryTip.ZIndex = 1011
     corner(batteryTip, 1)
     
-    -- ==================== WALLPAPER (HITAM GRADIENT) ====================
+    -- Wallpaper
     local wallpaper = Instance.new("Frame", screen)
     wallpaper.Size = UDim2.new(1, -4, 1, -14)
     wallpaper.Position = UDim2.new(0.5, 0, 0, 13)
@@ -6646,28 +6785,15 @@ local function createFloatingIcon()
     wallpaper.ZIndex = 1003
     corner(wallpaper, 6)
     
-    local wallGrad = Instance.new("UIGradient", wallpaper)
-    wallGrad.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 28)),
-        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(12, 12, 18)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(8, 8, 14))
-    })
-    wallGrad.Rotation = 45
-    
-    -- ==================== HOME SCREEN ICONS ====================
+    -- App Icons
     local iconPositions = {
-        {x = 3, y = 6},  {x = 14, y = 6},  {x = 25, y = 6},
+        {x = 3, y = 6}, {x = 14, y = 6}, {x = 25, y = 6},
         {x = 3, y = 17}, {x = 14, y = 17}, {x = 25, y = 17},
     }
-    
-    -- Ikon warna pastel elegan
     local iconColors = {
-        Color3.fromRGB(100, 160, 255),
-        Color3.fromRGB(255, 120, 120),
-        Color3.fromRGB(80, 210, 80),
-        Color3.fromRGB(255, 200, 50),
-        Color3.fromRGB(180, 100, 255),
-        Color3.fromRGB(255, 160, 60),
+        Color3.fromRGB(100, 160, 255), Color3.fromRGB(255, 120, 120),
+        Color3.fromRGB(80, 210, 80), Color3.fromRGB(255, 200, 50),
+        Color3.fromRGB(180, 100, 255), Color3.fromRGB(255, 160, 60),
     }
     
     for i, pos in ipairs(iconPositions) do
@@ -6679,21 +6805,9 @@ local function createFloatingIcon()
         appIcon.BorderSizePixel = 0
         appIcon.ZIndex = 1004
         corner(appIcon, 2.5)
-        
-        -- Label kecil di bawah ikon
-        local iconLabel = Instance.new("TextLabel", wallpaper)
-        iconLabel.Size = UDim2.new(0, 10, 0, 5)
-        iconLabel.Position = UDim2.new(0, pos.x - 1, 0, pos.y + 9)
-        iconLabel.BackgroundTransparency = 1
-        iconLabel.Text = "..."
-        iconLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
-        iconLabel.Font = Enum.Font.GothamBold
-        iconLabel.TextSize = 3
-        iconLabel.TextXAlignment = Enum.TextXAlignment.Center
-        iconLabel.ZIndex = 1004
     end
     
-    -- ==================== DOCK ====================
+    -- Dock
     local dock = Instance.new("Frame", wallpaper)
     dock.Size = UDim2.new(0, 32, 0, 12)
     dock.Position = UDim2.new(0.5, -16, 1, -13)
@@ -6704,45 +6818,43 @@ local function createFloatingIcon()
     corner(dock, 6)
     
     for i = 1, 4 do
-        local dockIcon = Instance.new("Frame", dock)
-        dockIcon.Size = UDim2.new(0, 5, 0, 5)
-        dockIcon.Position = UDim2.new(0, 3 + (i-1) * 7, 0.5, -2.5)
-        dockIcon.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        dockIcon.BackgroundTransparency = 0.3
-        dockIcon.BorderSizePixel = 0
-        dockIcon.ZIndex = 1005
-        corner(dockIcon, 1.5)
+        local d = Instance.new("Frame", dock)
+        d.Size = UDim2.new(0, 5, 0, 5)
+        d.Position = UDim2.new(0, 3 + (i-1) * 7, 0.5, -2.5)
+        d.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        d.BackgroundTransparency = 0.3
+        d.BorderSizePixel = 0
+        d.ZIndex = 1005
+        corner(d, 1.5)
     end
     
-    -- ==================== DYNAMIC ISLAND ====================
-    local dynamicIsland = Instance.new("Frame", phoneBody)
-    dynamicIsland.Size = UDim2.new(0, 24, 0, 5)
-    dynamicIsland.Position = UDim2.new(0.5, -12, 0, 6)
-    dynamicIsland.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    dynamicIsland.ZIndex = 1020
-    corner(dynamicIsland, 3)
+    -- Dynamic Island
+    local di2 = Instance.new("Frame", phoneBody)
+    di2.Size = UDim2.new(0, 24, 0, 5)
+    di2.Position = UDim2.new(0.5, -12, 0, 6)
+    di2.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    di2.ZIndex = 1020
+    corner(di2, 3)
     
-    -- ==================== HOME BAR ====================
-    local homeBar = Instance.new("Frame", phoneBody)
-    homeBar.Size = UDim2.new(0, 22, 0, 3)
-    homeBar.Position = UDim2.new(0.5, -11, 1, -5)
-    homeBar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    homeBar.BackgroundTransparency = 0.6
-    homeBar.BorderSizePixel = 0
-    homeBar.ZIndex = 1020
-    corner(homeBar, 2)
+    -- Home Bar
+    local hb = Instance.new("Frame", phoneBody)
+    hb.Size = UDim2.new(0, 22, 0, 3)
+    hb.Position = UDim2.new(0.5, -11, 1, -5)
+    hb.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    hb.BackgroundTransparency = 0.6
+    hb.BorderSizePixel = 0
+    hb.ZIndex = 1020
+    corner(hb, 2)
     
-    -- ==================== CAMERA MODULE ====================
-    -- Camera bump
-    local cameraBump = Instance.new("Frame", phoneBody)
-    cameraBump.Size = UDim2.new(0, 14, 0, 14)
-    cameraBump.Position = UDim2.new(0.5, 8, 1, -14)
-    cameraBump.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
-    cameraBump.ZIndex = 1020
-    corner(cameraBump, 100)
+    -- Camera
+    local camBump = Instance.new("Frame", phoneBody)
+    camBump.Size = UDim2.new(0, 14, 0, 14)
+    camBump.Position = UDim2.new(0.5, 8, 1, -14)
+    camBump.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
+    camBump.ZIndex = 1020
+    corner(camBump, 100)
     
-    -- Main lens
-    local mainLens = Instance.new("Frame", cameraBump)
+    local mainLens = Instance.new("Frame", camBump)
     mainLens.Size = UDim2.new(0, 7, 0, 7)
     mainLens.Position = UDim2.new(0.5, -3, 0.5, -3)
     mainLens.BackgroundColor3 = Color3.fromRGB(10, 10, 14)
@@ -6750,60 +6862,7 @@ local function createFloatingIcon()
     corner(mainLens, 100)
     stroke(mainLens, Color3.fromRGB(40, 40, 44), 1, 0)
     
-    local mainLensInner = Instance.new("Frame", mainLens)
-    mainLensInner.Size = UDim2.new(0, 3, 0, 3)
-    mainLensInner.Position = UDim2.new(0.5, -1.5, 0.5, -1.5)
-    mainLensInner.BackgroundColor3 = Color3.fromRGB(5, 5, 8)
-    mainLensInner.ZIndex = 1022
-    corner(mainLensInner, 100)
-    
-    -- Second lens (smaller)
-    local secondLens = Instance.new("Frame", cameraBump)
-    secondLens.Size = UDim2.new(0, 4, 0, 4)
-    secondLens.Position = UDim2.new(0, 2, 0, 8)
-    secondLens.BackgroundColor3 = Color3.fromRGB(10, 10, 14)
-    secondLens.ZIndex = 1021
-    corner(secondLens, 100)
-    stroke(secondLens, Color3.fromRGB(40, 40, 44), 1, 0)
-    
-    -- Flash
-    local flashLed = Instance.new("Frame", cameraBump)
-    flashLed.Size = UDim2.new(0, 3, 0, 3)
-    flashLed.Position = UDim2.new(0, 9, 0, 5)
-    flashLed.BackgroundColor3 = Color3.fromRGB(255, 255, 220)
-    flashLed.BackgroundTransparency = 0.3
-    flashLed.ZIndex = 1021
-    corner(flashLed, 100)
-    
-    -- ==================== SIDE BUTTONS ====================
-    -- Volume Up
-    local volUp = Instance.new("Frame", phoneBody)
-    volUp.Size = UDim2.new(0, 2, 0, 10)
-    volUp.Position = UDim2.new(1, -1, 0, 18)
-    volUp.BackgroundColor3 = Color3.fromRGB(35, 35, 38)
-    volUp.BorderSizePixel = 0
-    volUp.ZIndex = 999
-    corner(volUp, 1)
-    
-    -- Volume Down
-    local volDown = Instance.new("Frame", phoneBody)
-    volDown.Size = UDim2.new(0, 2, 0, 10)
-    volDown.Position = UDim2.new(1, -1, 0, 32)
-    volDown.BackgroundColor3 = Color3.fromRGB(35, 35, 38)
-    volDown.BorderSizePixel = 0
-    volDown.ZIndex = 999
-    corner(volDown, 1)
-    
-    -- Power Button
-    local powerBtn = Instance.new("Frame", phoneBody)
-    powerBtn.Size = UDim2.new(0, 2, 0, 12)
-    powerBtn.Position = UDim2.new(0, -1, 0, 22)
-    powerBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 38)
-    powerBtn.BorderSizePixel = 0
-    powerBtn.ZIndex = 999
-    corner(powerBtn, 1)
-    
-    -- ==================== TOMBOL KLIK ====================
+    -- ==================== CLICK BUTTON (FIXED) ====================
     local clickBtn = Instance.new("TextButton", iconContainer)
     clickBtn.Size = UDim2.new(0, 55, 0, 95)
     clickBtn.Position = UDim2.new(0.5, -27, 0.5, -47)
@@ -6812,7 +6871,6 @@ local function createFloatingIcon()
     clickBtn.ZIndex = 1030
     clickBtn.AutoButtonColor = false
     
-    -- Hover effect
     clickBtn.MouseEnter:Connect(function()
         tween(phoneBody, {Size = UDim2.new(0, 54, 0, 94)}, 0.15)
     end)
@@ -6822,17 +6880,26 @@ local function createFloatingIcon()
         end
     end)
     
-    -- KLIK = BUKA/TUTUP PHONE
-    clickBtn.Activated:Connect(function()
+    -- KLIK BUKA/TUTUP (LANGSUNG - TANPA FUNGSI LAIN)
+    clickBtn.MouseButton1Click:Connect(function()
+        if mouseMoved then return end -- Jangan proses kalau lagi drag
+        
         if not phone or not phone.Parent then return end
         
         if phone.Visible then
-            phone.Visible = false
+            -- TUTUP
+            tween(phone, {Size = UDim2.new(0, 0, 0, 0)}, 0.25)
+            task.delay(0.25, function()
+                if phone and phone.Parent then
+                    phone.Visible = false
+                end
+            end)
         else
+            -- BUKA
+            applyPhoneOrientationSize()
             phone.Visible = true
             phone.Size = UDim2.new(0, 0, 0, 0)
-            local targetSize = PHONE_SIZE or UDim2.new(0, 320, 0, 560)
-            tween(phone, {Size = targetSize}, 0.3)
+            tween(phone, {Size = PHONE_SIZE}, 0.3, Enum.EasingStyle.Back)
             
             if isLocked then
                 lock.Visible = true
@@ -6849,21 +6916,21 @@ local function createFloatingIcon()
         mouseMoved = false
         dragStart = UserInputService:GetMouseLocation()
         iconStartPos = iconContainer.Position
-        tween(phoneBody, {Size = UDim2.new(0, 46, 0, 82)}, 0.1)
     end)
     
     clickBtn.MouseButton1Up:Connect(function()
         mouseDown = false
+        task.wait(0.1)
+        mouseMoved = false -- Reset setelah selesai
     end)
     
     UserInputService.InputChanged:Connect(function(input)
         if not mouseDown then return end
-        if input.UserInputType == Enum.UserInputType.MouseMovement or 
-           input.UserInputType == Enum.UserInputType.Touch then
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
             local mousePos = UserInputService:GetMouseLocation()
             if not dragStart then return end
             local delta = mousePos - dragStart
-            if math.abs(delta.X) > 3 or math.abs(delta.Y) > 3 then
+            if math.abs(delta.X) > 5 or math.abs(delta.Y) > 5 then
                 mouseMoved = true
             end
             if mouseMoved then
@@ -6878,11 +6945,10 @@ local function createFloatingIcon()
     end)
     
     phoneIcon = gui
-    print("[iPhone Icon] Premium B&W Created!")
     return gui
 end
 
--- ================= INIT =================
+-- ==================== INIT ====================
 task.spawn(function()
     task.wait(1)
     createFloatingIcon()
@@ -6890,7 +6956,7 @@ task.spawn(function()
     openPhone()
 end)
 
--- ================= RESPAWN =================
+-- ==================== RESPAWN ====================
 LocalPlayer.CharacterAdded:Connect(function(char)
     task.wait(1)
     if not phoneIcon or not phoneIcon.Parent then
@@ -6898,7 +6964,7 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     end
 end)
 
--- ================= MONITOR =================
+-- ==================== MONITOR ====================
 task.spawn(function()
     while true do
         task.wait(5)
@@ -6908,34 +6974,22 @@ task.spawn(function()
     end
 end)
 
--- ================= PHONE OPEN/CLOSE =================
-local function openPhone()
-    if not phone or not phone.Parent then return end
-    if phone.Visible then return end
-    applyPhoneOrientationSize()
-    phone.Visible = true
-    phone.Size = UDim2.new(0, 0, 0, 0)
-    tween(phone, {Size = PHONE_SIZE}, 0.32, Enum.EasingStyle.Back)
-    if isLocked then
-        lock.Visible = true
-        pass.Visible = false
-    else
-        goHome()
-    end
-end
-
-local function closePhone()
-    if not phone or not phone.Parent then return end
-    if not phone.Visible then return end
-    tween(phone, {Size = UDim2.new(0, 0, 0, 0)}, 0.22)
-    task.delay(0.22, function()
-        if phone and phone.Parent then
-            phone.Visible = false
+-- ==================== ORIENTATION MONITOR ====================
+task.spawn(function()
+    local lastLandscape = nil
+    while true do
+        task.wait(0.3)
+        local cam = Workspace.CurrentCamera
+        if not cam then continue end
+        local isLand = cam.ViewportSize.X > cam.ViewportSize.Y
+        if isLand ~= lastLandscape then
+            lastLandscape = isLand
+            applyPhoneOrientationSize()
         end
-    end)
-end
+    end
+end)
 
-print("[Phone] Premium B&W iPhone Icon ready!")
+print("[Phone] System ready! Click icon to open/close.")
 
 
 -- ================= TELEGRAM NOTIFICATION =================
