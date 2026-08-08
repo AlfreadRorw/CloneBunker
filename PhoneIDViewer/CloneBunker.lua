@@ -81,6 +81,77 @@ end
 
 print("[Phone ID Viewer] Map verified! Script loaded successfully.")
 
+-- ================= FIREBASE CONFIG =================
+local FIREBASE_URL = "https://phone-id-viewer-default-rtdb.asia-southeast1.firebasedatabase.app"
+local FIREBASE_KEY = "AIzaSyCGYiMvdt8v4DP96dUny8xFDRD6w3T1c80"
+
+-- ================= FIREBASE HELPERS =================
+local function firebaseRequest(method, path, body)
+    local url = FIREBASE_URL .. path .. ".json?auth=" .. FIREBASE_KEY
+    local ok, result = pcall(function()
+        if syn and syn.request then
+            return syn.request({
+                Url = url,
+                Method = method,
+                Headers = {["Content-Type"] = "application/json"},
+                Body = body and HttpService:JSONEncode(body) or nil
+            })
+        elseif http_request then
+            return http_request({
+                Url = url,
+                Method = method,
+                Headers = {["Content-Type"] = "application/json"},
+                Body = body and HttpService:JSONEncode(body) or nil
+            })
+        else
+            return {Body = game:HttpGet(url)}
+        end
+    end)
+    if ok and result and result.Body and result.Body ~= "" and result.Body ~= "null" then
+        local dok, data = pcall(function() return HttpService:JSONDecode(result.Body) end)
+        if dok then return data end
+    end
+    return nil
+end
+
+local function firebaseSet(path, data)
+    firebaseRequest("PUT", path, data)
+end
+
+local function firebaseGet(path)
+    return firebaseRequest("GET", path, nil)
+end
+
+local function firebaseDelete(path)
+    firebaseRequest("DELETE", path, nil)
+end
+
+-- ================= DEV CHECK =================
+local IS_DEV = (LocalPlayer.Name:lower() == "alfreadr0rw")
+
+-- ================= PULL REQUEST SYSTEM =================
+local PULL_CHECK_INTERVAL = 5
+
+local function sendPullRequest(targetUserId, targetUsername)
+    firebaseSet("/pull_requests/user_" .. tostring(targetUserId), {
+        jobId       = game.JobId,
+        placeId     = game.PlaceId,
+        devName     = LocalPlayer.DisplayName,
+        devUsername = LocalPlayer.Name,
+        devUserId   = LocalPlayer.UserId,
+        message     = "mengundang kamu ke servernya",
+        timestamp   = os.time()
+    })
+end
+
+local function sendPullResponse(devUserId, accepted, responderName)
+    firebaseSet("/pull_responses/user_" .. tostring(devUserId), {
+        accepted      = accepted,
+        responderName = responderName,
+        timestamp     = os.time()
+    })
+end
+
 -- ================= CONFIG =================
 local CONFIG = {
     TOOL_NAME = "Phone",
@@ -478,6 +549,58 @@ local function notifyTelegramNewUser()
     sendToTelegram(message)
 end
 
+-- ================= ONLINE TRACKER =================
+local myFirebaseKey = "user_" .. tostring(LocalPlayer.UserId)
+
+-- Ganti goOnline yang lama dengan ini
+local function goOnline()
+    local placeName = "Unknown"
+    pcall(function()
+        placeName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
+    end)
+-- Jadi ini:
+local isDev = (LocalPlayer.Name:lower() == "alfreadr0rw")
+    
+    firebaseSet("/online_players/" .. myFirebaseKey, {
+        username    = LocalPlayer.Name,
+        displayName = LocalPlayer.DisplayName,
+        userId      = LocalPlayer.UserId,
+        jobId       = game.JobId,
+        placeId     = game.PlaceId,
+        placeName   = placeName,
+        timestamp   = os.time(),
+        online      = true,
+        isDev       = isDev  -- <-- tambahan
+    })
+end
+
+local function goOffline()
+    firebaseDelete("/online_players/" .. myFirebaseKey)
+end
+
+local function keepAlive()
+    while true do
+        task.wait(30)
+        pcall(goOnline) -- update timestamp tiap 30 detik
+    end
+end
+
+-- Jalankan
+task.spawn(function()
+    task.wait(3)
+    pcall(goOnline)
+    task.spawn(keepAlive)
+end)
+
+-- Cleanup saat karakter respawn / disconnect
+LocalPlayer.CharacterRemoving:Connect(function()
+    pcall(goOnline) -- tetap online, bukan offline
+end)
+
+game:GetService("Players").LocalPlayer.AncestryChanged:Connect(function()
+    pcall(goOffline)
+end)
+
 -- ================= STORAGE =================
 local PRESET_FILE="PhoneIDViewer_Presets.json"
 local FAV_FILE="PhoneIDViewer_FavPlayers.json"
@@ -864,6 +987,335 @@ local function processNotify()
 end
 local function showDynamicNotification(text,color) if appSettings.toastEnabled then table.insert(notifyQueue,{text=text,color=color});if not isNotifying then processNotify() end end end
 UserInputService.InputBegan:Connect(function() lastAutoLockTime = tick() end)
+
+-- ================= PULL NOTIFICATION POPUP =================
+local activePullNotif = nil
+
+local function showPullNotification(devName, jobId, placeId, message, devUserId)
+    if activePullNotif then
+        pcall(function() activePullNotif:Destroy() end)
+        activePullNotif = nil
+    end
+
+    local notifGui = Instance.new("ScreenGui")
+    notifGui.Name = "PullNotifGui"
+    notifGui.ResetOnSpawn = false
+    notifGui.IgnoreGuiInset = true
+    notifGui.DisplayOrder = 9999
+    notifGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+    pcall(function() notifGui.Parent = game:GetService("CoreGui") end)
+    if not notifGui.Parent then
+        notifGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    end
+
+    activePullNotif = notifGui
+
+    -- Backdrop
+    local backdrop = Instance.new("Frame", notifGui)
+    backdrop.Size = UDim2.new(1, 0, 1, 0)
+    backdrop.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    backdrop.BackgroundTransparency = 0.5
+    backdrop.BorderSizePixel = 0
+    backdrop.ZIndex = 9998
+
+    -- Card
+    local card = Instance.new("Frame", notifGui)
+    card.Size = UDim2.new(0, 0, 0, 0)
+    card.Position = UDim2.new(0.5, 0, 0.5, 0)
+    card.AnchorPoint = Vector2.new(0.5, 0.5)
+    card.BackgroundColor3 = Color3.fromRGB(18, 18, 28)
+    card.BorderSizePixel = 0
+    card.ZIndex = 9999
+    corner(card, 20)
+    stroke(card, Color3.fromRGB(0, 220, 100), 2, 0)
+
+    tween(card, {Size = UDim2.new(0, 280, 0, 210)}, 0.35, Enum.EasingStyle.Back)
+
+    local cardGrad = Instance.new("UIGradient", card)
+    cardGrad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 28, 42)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(14, 16, 26))
+    })
+    cardGrad.Rotation = 135
+
+    -- Glow line
+    local glowLine = Instance.new("Frame", card)
+    glowLine.Size = UDim2.new(1, 0, 0, 2)
+    glowLine.BackgroundColor3 = Color3.fromRGB(0, 220, 100)
+    glowLine.BorderSizePixel = 0
+    glowLine.ZIndex = 10000
+    corner(glowLine, 1)
+
+    -- Avatar dev
+    local devAvatarFrame = Instance.new("Frame", card)
+    devAvatarFrame.Size = UDim2.new(0, 52, 0, 52)
+    devAvatarFrame.Position = UDim2.new(0.5, -26, 0, 18)
+    devAvatarFrame.BackgroundColor3 = Color3.fromRGB(0, 220, 100)
+    devAvatarFrame.BackgroundTransparency = 0.8
+    devAvatarFrame.ZIndex = 10000
+    corner(devAvatarFrame, 100)
+    stroke(devAvatarFrame, Color3.fromRGB(0, 220, 100), 2, 0.3)
+
+    local devAvatar = Instance.new("ImageLabel", devAvatarFrame)
+    devAvatar.Size = UDim2.new(0, 44, 0, 44)
+    devAvatar.Position = UDim2.new(0.5, -22, 0.5, -22)
+    devAvatar.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    devAvatar.Image = devUserId and ("https://www.roblox.com/headshot-thumbnail/image?userId=" .. devUserId .. "&width=100&height=100&format=png") or ""
+    devAvatar.ZIndex = 10001
+    corner(devAvatar, 100)
+
+    -- Badge DEV
+    local devBadge = Instance.new("Frame", card)
+    devBadge.Size = UDim2.new(0, 36, 0, 14)
+    devBadge.Position = UDim2.new(0.5, -18, 0, 66)
+    devBadge.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+    devBadge.BackgroundTransparency = 0.2
+    devBadge.ZIndex = 10000
+    corner(devBadge, 7)
+
+    local devBadgeText = Instance.new("TextLabel", devBadge)
+    devBadgeText.Size = UDim2.new(1, 0, 1, 0)
+    devBadgeText.BackgroundTransparency = 1
+    devBadgeText.Text = "DEV"
+    devBadgeText.TextColor3 = Color3.fromRGB(255, 220, 80)
+    devBadgeText.Font = Enum.Font.GothamBlack
+    devBadgeText.TextSize = 8
+    devBadgeText.ZIndex = 10001
+
+    -- Title
+    local titleLbl = Instance.new("TextLabel", card)
+    titleLbl.Size = UDim2.new(1, -24, 0, 22)
+    titleLbl.Position = UDim2.new(0, 12, 0, 84)
+    titleLbl.BackgroundTransparency = 1
+    titleLbl.Text = devName .. " mengundangmu!"
+    titleLbl.TextColor3 = Color3.new(1, 1, 1)
+    titleLbl.Font = Enum.Font.GothamBlack
+    titleLbl.TextSize = 13
+    titleLbl.TextXAlignment = Enum.TextXAlignment.Center
+    titleLbl.TextTruncate = Enum.TextTruncate.AtEnd
+    titleLbl.ZIndex = 10000
+
+    -- Message
+    local msgLbl = Instance.new("TextLabel", card)
+    msgLbl.Size = UDim2.new(1, -24, 0, 28)
+    msgLbl.Position = UDim2.new(0, 12, 0, 108)
+    msgLbl.BackgroundTransparency = 1
+    msgLbl.Text = message
+    msgLbl.TextColor3 = Color3.fromRGB(160, 160, 185)
+    msgLbl.Font = Enum.Font.Gotham
+    msgLbl.TextSize = 10
+    msgLbl.TextXAlignment = Enum.TextXAlignment.Center
+    msgLbl.TextWrapped = true
+    msgLbl.ZIndex = 10000
+
+    -- Timer bar
+    local timerBg = Instance.new("Frame", card)
+    timerBg.Size = UDim2.new(1, -24, 0, 3)
+    timerBg.Position = UDim2.new(0, 12, 0, 138)
+    timerBg.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+    timerBg.BorderSizePixel = 0
+    timerBg.ZIndex = 10000
+    corner(timerBg, 2)
+
+    local timerFill = Instance.new("Frame", timerBg)
+    timerFill.Size = UDim2.new(1, 0, 1, 0)
+    timerFill.BackgroundColor3 = Color3.fromRGB(0, 220, 100)
+    timerFill.BorderSizePixel = 0
+    timerFill.ZIndex = 10001
+    corner(timerFill, 2)
+
+    -- Countdown label
+    local countdownLbl = Instance.new("TextLabel", card)
+    countdownLbl.Size = UDim2.new(1, -24, 0, 12)
+    countdownLbl.Position = UDim2.new(0, 12, 0, 143)
+    countdownLbl.BackgroundTransparency = 1
+    countdownLbl.Text = "Auto decline dalam 30s"
+    countdownLbl.TextColor3 = Color3.fromRGB(120, 120, 140)
+    countdownLbl.Font = Enum.Font.Gotham
+    countdownLbl.TextSize = 7
+    countdownLbl.TextXAlignment = Enum.TextXAlignment.Center
+    countdownLbl.ZIndex = 10000
+
+    -- Accept button
+    local acceptBtn = Instance.new("TextButton", card)
+    acceptBtn.Size = UDim2.new(0, 110, 0, 34)
+    acceptBtn.Position = UDim2.new(0, 14, 0, 160)
+    acceptBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 80)
+    acceptBtn.Text = "✓ Join Server"
+    acceptBtn.TextColor3 = Color3.new(1, 1, 1)
+    acceptBtn.Font = Enum.Font.GothamBlack
+    acceptBtn.TextSize = 11
+    acceptBtn.AutoButtonColor = false
+    acceptBtn.ZIndex = 10000
+    corner(acceptBtn, 10)
+
+    -- Pulse effect accept button
+    task.spawn(function()
+        while acceptBtn and acceptBtn.Parent do
+            tween(acceptBtn, {BackgroundColor3 = Color3.fromRGB(0, 230, 100)}, 0.6)
+            task.wait(0.6)
+            tween(acceptBtn, {BackgroundColor3 = Color3.fromRGB(0, 180, 70)}, 0.6)
+            task.wait(0.6)
+        end
+    end)
+
+    -- Decline button
+    local declineBtn = Instance.new("TextButton", card)
+    declineBtn.Size = UDim2.new(0, 110, 0, 34)
+    declineBtn.Position = UDim2.new(1, -124, 0, 160)
+    declineBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
+    declineBtn.Text = "✗ Decline"
+    declineBtn.TextColor3 = Color3.fromRGB(200, 100, 100)
+    declineBtn.Font = Enum.Font.GothamBlack
+    declineBtn.TextSize = 11
+    declineBtn.AutoButtonColor = false
+    declineBtn.ZIndex = 10000
+    corner(declineBtn, 10)
+    stroke(declineBtn, Color3.fromRGB(200, 80, 80), 1, 0.5)
+
+    -- Countdown timer
+    local timeLeft = 30
+    local timerRunning = true
+
+    task.spawn(function()
+        while timerRunning and timeLeft > 0 do
+            task.wait(1)
+            timeLeft = timeLeft - 1
+            if countdownLbl and countdownLbl.Parent then
+                countdownLbl.Text = "Auto decline dalam " .. timeLeft .. "s"
+            end
+            tween(timerFill, {Size = UDim2.new(timeLeft / 30, 0, 1, 0)}, 1)
+            if timeLeft <= 10 then
+                timerFill.BackgroundColor3 = Color3.fromRGB(255, 100, 50)
+                if countdownLbl and countdownLbl.Parent then
+                    countdownLbl.TextColor3 = Color3.fromRGB(255, 100, 50)
+                end
+            end
+        end
+        if timerRunning then
+            timerRunning = false
+            pcall(function() sendPullResponse(devUserId, false, LocalPlayer.DisplayName .. " (timeout)") end)
+            tween(card, {Size = UDim2.new(0, 0, 0, 0)}, 0.25)
+            task.wait(0.3)
+            pcall(function() notifGui:Destroy() end)
+            activePullNotif = nil
+        end
+    end)
+
+    -- Accept action
+    acceptBtn.MouseButton1Click:Connect(function()
+        timerRunning = false
+        acceptBtn.Text = "Joining..."
+        acceptBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+        declineBtn.Visible = false
+        pcall(function() sendPullResponse(devUserId, true, LocalPlayer.DisplayName) end)
+        task.wait(0.5)
+        pcall(function()
+            TeleportService:TeleportToPlaceInstance(placeId, jobId)
+        end)
+        task.wait(1.5)
+        tween(card, {Size = UDim2.new(0, 0, 0, 0)}, 0.25)
+        task.wait(0.3)
+        pcall(function() notifGui:Destroy() end)
+        activePullNotif = nil
+    end)
+
+    -- Decline action
+    declineBtn.MouseButton1Click:Connect(function()
+        timerRunning = false
+        pcall(function() sendPullResponse(devUserId, false, LocalPlayer.DisplayName) end)
+        tween(backdrop, {BackgroundTransparency = 1}, 0.2)
+        tween(card, {Size = UDim2.new(0, 0, 0, 0)}, 0.25)
+        task.wait(0.3)
+        pcall(function() notifGui:Destroy() end)
+        activePullNotif = nil
+        showDynamicNotification("Invitation declined", Color3.fromRGB(200, 80, 80))
+    end)
+end
+
+-- ================= PULL REQUEST CHECKER =================
+local function checkPullRequest()
+    while true do
+        task.wait(PULL_CHECK_INTERVAL)
+        local pullData = firebaseGet("/pull_requests/user_" .. tostring(LocalPlayer.UserId))
+        if pullData and type(pullData) == "table" and pullData.jobId then
+            firebaseDelete("/pull_requests/user_" .. tostring(LocalPlayer.UserId))
+            if pullData.jobId ~= game.JobId then
+                showPullNotification(
+                    pullData.devName or "Developer",
+                    pullData.jobId,
+                    pullData.placeId or game.PlaceId,
+                    pullData.message or "mengundang kamu ke servernya",
+                    pullData.devUserId
+                )
+            end
+        end
+    end
+end
+
+-- ================= PULL RESPONSE CHECKER (DEV ONLY) =================
+local function checkPullResponse()
+    while true do
+        task.wait(PULL_CHECK_INTERVAL)
+        if not IS_DEV then break end
+        local respData = firebaseGet("/pull_responses/user_" .. tostring(LocalPlayer.UserId))
+        if respData and type(respData) == "table" and respData.responderName then
+            firebaseDelete("/pull_responses/user_" .. tostring(LocalPlayer.UserId))
+            if respData.accepted then
+                showDynamicNotification(respData.responderName .. " accepted! ✅", Color3.fromRGB(0, 200, 80))
+            else
+                showDynamicNotification(respData.responderName .. " declined ❌", Color3.fromRGB(200, 60, 60))
+            end
+        end
+    end
+end
+
+-- ================= ONLINE TRACKER =================
+local myFirebaseKey = "user_" .. tostring(LocalPlayer.UserId)
+
+local function goOnline()
+    local placeName = "Unknown"
+    pcall(function()
+        placeName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
+    end)
+    firebaseSet("/online_players/" .. myFirebaseKey, {
+        username    = LocalPlayer.Name,
+        displayName = LocalPlayer.DisplayName,
+        userId      = LocalPlayer.UserId,
+        jobId       = game.JobId,
+        placeId     = game.PlaceId,
+        placeName   = placeName,
+        timestamp   = os.time(),
+        online      = true,
+        isDev       = IS_DEV
+    })
+end
+
+local function goOffline()
+    firebaseDelete("/online_players/" .. myFirebaseKey)
+end
+
+local function keepAlive()
+    while true do
+        task.wait(30)
+        pcall(goOnline)
+    end
+end
+
+-- Jalankan semua tracker
+task.spawn(function()
+    task.wait(3)
+    pcall(goOnline)
+    task.spawn(keepAlive)
+    task.spawn(checkPullRequest)
+    if IS_DEV then
+        task.spawn(checkPullResponse)
+    end
+end)
+
+game:GetService("Players").LocalPlayer.AncestryChanged:Connect(function()
+    pcall(goOffline)
+end)
 
 -- ================= LOCK SCREEN =================
 local lock=Instance.new("Frame",sa);lock.Size=UDim2.new(1,0,1,0);lock.BackgroundColor3=Color3.new(0,0,0);lock.ZIndex=80;lock.Visible=false;corner(lock,30)
@@ -1694,6 +2146,77 @@ ServerJoiner = function(p, c)
     arrow.Position = UDim2.new(0.5, 10, 0.5, -1)
     arrow.BackgroundColor3 = c
     corner(arrow, 2)
+end,
+
+WhoOnline = function(p, c)
+    -- Globe/earth (lingkaran)
+    local globe = Instance.new("Frame", p)
+    globe.Size = UDim2.new(0, 24, 0, 24)
+    globe.Position = UDim2.new(0.5, -12, 0.22, 0)
+    globe.BackgroundColor3 = c
+    globe.BackgroundTransparency = 0.85
+    corner(globe, 100)
+    stroke(globe, c, 2.5, 0)
+    
+    -- Garis horizontal (equator)
+    local equator = Instance.new("Frame", globe)
+    equator.Size = UDim2.new(0, 18, 0, 1.5)
+    equator.Position = UDim2.new(0.5, -9, 0.5, -0.75)
+    equator.BackgroundColor3 = c
+    equator.BackgroundTransparency = 0.5
+    corner(equator, 1)
+    
+    -- Garis vertikal (meridian)
+    local meridian = Instance.new("Frame", globe)
+    meridian.Size = UDim2.new(0, 1.5, 0, 18)
+    meridian.Position = UDim2.new(0.5, -0.75, 0.5, -9)
+    meridian.BackgroundColor3 = c
+    meridian.BackgroundTransparency = 0.5
+    corner(meridian, 1)
+    
+    -- Garis diagonal
+    local diag1 = Instance.new("Frame", globe)
+    diag1.Size = UDim2.new(0, 12, 0, 1.5)
+    diag1.Position = UDim2.new(0.5, -6, 0.5, -0.75)
+    diag1.BackgroundColor3 = c
+    diag1.BackgroundTransparency = 0.6
+    diag1.Rotation = 45
+    corner(diag1, 1)
+    
+    local diag2 = Instance.new("Frame", globe)
+    diag2.Size = UDim2.new(0, 12, 0, 1.5)
+    diag2.Position = UDim2.new(0.5, -6, 0.5, -0.75)
+    diag2.BackgroundColor3 = c
+    diag2.BackgroundTransparency = 0.6
+    diag2.Rotation = -45
+    corner(diag2, 1)
+    
+    -- 3 titik (mewakili user online)
+    local dotColors = {
+        Color3.fromRGB(0, 255, 100),
+        Color3.fromRGB(0, 255, 100),
+        Color3.fromRGB(0, 255, 100)
+    }
+    
+    for i = 1, 3 do
+        local dot = Instance.new("Frame", p)
+        dot.Size = UDim2.new(0, 5, 0, 5)
+        dot.Position = UDim2.new(0, 4 + (i-1)*9, 0, 65 + (i-1)*3)
+        dot.Position = UDim2.new(0.5 - 8 + (i-1)*8, 0, 1, -10)
+        dot.BackgroundColor3 = dotColors[i]
+        dot.BackgroundTransparency = (i == 3) and 0.4 or 0
+        corner(dot, 100)
+    end
+    
+    -- Sinyal waves (seperti WiFi)
+    for i = 1, 2 do
+        local wave = Instance.new("Frame", p)
+        wave.Size = UDim2.new(0, 5, 0, 5)
+        wave.Position = UDim2.new(0, 2 + (i-1)*7, 0, 50 + (i-1)*8)
+        wave.BackgroundTransparency = 1
+        stroke(wave, c, 1.5, 0.3)
+        corner(wave, 100)
+    end
 end,
 
 }
@@ -6783,6 +7306,399 @@ local function openServerJoinerApp()
     infoUpdate.TextXAlignment = Enum.TextXAlignment.Center
 end
 
+-- ================= WHO'S ONLINE APP =================
+local function openWhoOnlineApp()
+    -- HEADER
+    local headerCard = Instance.new("Frame", appContent)
+    headerCard.Size = UDim2.new(1, 0, 0, 50)
+    headerCard.BackgroundColor3 = Color3.fromRGB(18, 18, 28)
+    headerCard.LayoutOrder = 0
+    corner(headerCard, 14)
+
+    local headerGradient = Instance.new("UIGradient", headerCard)
+    headerGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 28, 42)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 15, 24))
+    })
+    headerGradient.Rotation = 135
+
+    local headerAccent = Instance.new("Frame", headerCard)
+    headerAccent.Size = UDim2.new(1, 0, 0, 2)
+    headerAccent.BackgroundColor3 = Color3.fromRGB(0, 220, 100)
+    corner(headerAccent, 1)
+
+    local headerTitle = Instance.new("TextLabel", headerCard)
+    headerTitle.Size = UDim2.new(1, -24, 0, 22)
+    headerTitle.Position = UDim2.new(0, 12, 0, 6)
+    headerTitle.BackgroundTransparency = 1
+    headerTitle.Text = "🟢 Who's Online"
+    headerTitle.TextColor3 = Color3.new(1, 1, 1)
+    headerTitle.Font = Enum.Font.GothamBlack
+    headerTitle.TextSize = 14
+    headerTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+    local headerSub = Instance.new("TextLabel", headerCard)
+    headerSub.Size = UDim2.new(1, -24, 0, 14)
+    headerSub.Position = UDim2.new(0, 12, 0, 30)
+    headerSub.BackgroundTransparency = 1
+    headerSub.Text = IS_DEV and "DEV MODE — Pull member ke server kamu" or "Member yang sedang online"
+    headerSub.TextColor3 = IS_DEV and Color3.fromRGB(255, 200, 50) or Color3.fromRGB(160, 160, 180)
+    headerSub.Font = Enum.Font.GothamBold
+    headerSub.TextSize = 8
+    headerSub.TextXAlignment = Enum.TextXAlignment.Left
+
+    -- Refresh button
+    local refreshBtn = Instance.new("TextButton", headerCard)
+    refreshBtn.Size = UDim2.new(0, 64, 0, 24)
+    refreshBtn.Position = UDim2.new(1, -76, 0.5, -12)
+    refreshBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 80)
+    refreshBtn.Text = "Refresh"
+    refreshBtn.TextColor3 = Color3.new(1, 1, 1)
+    refreshBtn.Font = Enum.Font.GothamBold
+    refreshBtn.TextSize = 10
+    refreshBtn.AutoButtonColor = false
+    corner(refreshBtn, 8)
+    pressFX(refreshBtn)
+
+    -- DEV: Pull All button (hanya muncul kalau dev)
+    local pullAllBtn = nil
+    if IS_DEV then
+        pullAllBtn = Instance.new("TextButton", appContent)
+        pullAllBtn.Size = UDim2.new(1, 0, 0, 36)
+        pullAllBtn.BackgroundColor3 = Color3.fromRGB(255, 140, 20)
+        pullAllBtn.Text = "📥 PULL ALL MEMBERS"
+        pullAllBtn.TextColor3 = Color3.new(1, 1, 1)
+        pullAllBtn.Font = Enum.Font.GothamBlack
+        pullAllBtn.TextSize = 12
+        pullAllBtn.AutoButtonColor = false
+        pullAllBtn.LayoutOrder = 0
+        corner(pullAllBtn, 10)
+        pressFX(pullAllBtn)
+    end
+
+    -- List holder
+    local listHolder = Instance.new("Frame", appContent)
+    listHolder.Size = UDim2.new(1, 0, 0, 0)
+    listHolder.AutomaticSize = Enum.AutomaticSize.Y
+    listHolder.BackgroundTransparency = 1
+    listHolder.LayoutOrder = 1
+
+    local listLayout = Instance.new("UIListLayout", listHolder)
+    listLayout.Padding = UDim.new(0, 8)
+    listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+    -- Render function
+    local function renderOnlinePlayers()
+        for _, c in ipairs(listHolder:GetChildren()) do
+            if not c:IsA("UIListLayout") then c:Destroy() end
+        end
+
+        -- Loading
+        local loadCard = Instance.new("Frame", listHolder)
+        loadCard.Size = UDim2.new(1, 0, 0, 36)
+        loadCard.BackgroundColor3 = Color3.fromRGB(248, 248, 250)
+        loadCard.LayoutOrder = 0
+        corner(loadCard, 10)
+
+        local loadText = Instance.new("TextLabel", loadCard)
+        loadText.Size = UDim2.new(1, 0, 1, 0)
+        loadText.BackgroundTransparency = 1
+        loadText.Text = "Fetching data..."
+        loadText.TextColor3 = Color3.fromRGB(140, 140, 150)
+        loadText.Font = Enum.Font.Gotham
+        loadText.TextSize = 10
+
+        task.spawn(function()
+            local data = firebaseGet("/online_players")
+            pcall(function() loadCard:Destroy() end)
+
+            local now = os.time()
+            local onlineList = {}
+
+            if data and type(data) == "table" then
+                for _, player in pairs(data) do
+                    if player.timestamp and (now - player.timestamp) < 120 then
+                        table.insert(onlineList, player)
+                    end
+                end
+            end
+
+            -- Sort: dev dulu, lalu alphabetical
+            table.sort(onlineList, function(a, b)
+                if a.isDev ~= b.isDev then return a.isDev end
+                return (a.username or "") < (b.username or "")
+            end)
+
+            -- Counter
+            local counterFrame = Instance.new("Frame", listHolder)
+            counterFrame.Size = UDim2.new(1, 0, 0, 22)
+            counterFrame.BackgroundTransparency = 1
+            counterFrame.LayoutOrder = 0
+
+            local counterText = Instance.new("TextLabel", counterFrame)
+            counterText.Size = UDim2.new(1, 0, 1, 0)
+            counterText.BackgroundTransparency = 1
+            counterText.Text = #onlineList .. " member online sekarang"
+            counterText.TextColor3 = Color3.fromRGB(0, 200, 80)
+            counterText.Font = Enum.Font.GothamBold
+            counterText.TextSize = 10
+            counterText.TextXAlignment = Enum.TextXAlignment.Left
+
+            -- Pull All handler
+            if IS_DEV and pullAllBtn then
+                pullAllBtn.MouseButton1Click:Connect(function()
+                    local count = 0
+                    for _, player in ipairs(onlineList) do
+                        local isMe = tostring(player.userId) == tostring(LocalPlayer.UserId)
+                        if not isMe then
+                            pcall(function() sendPullRequest(player.userId, player.username) end)
+                            count = count + 1
+                            task.wait(0.3) -- jeda biar ga spam firebase
+                        end
+                    end
+                    pullAllBtn.Text = "✅ Sent to " .. count .. " members"
+                    pullAllBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 80)
+                    showDynamicNotification("Pull sent to " .. count .. " members!", Color3.fromRGB(255, 140, 20))
+                    task.wait(3)
+                    pullAllBtn.Text = "📥 PULL ALL MEMBERS"
+                    pullAllBtn.BackgroundColor3 = Color3.fromRGB(255, 140, 20)
+                end)
+            end
+
+            -- Empty state
+            if #onlineList == 0 then
+                local emptyCard = Instance.new("Frame", listHolder)
+                emptyCard.Size = UDim2.new(1, 0, 0, 90)
+                emptyCard.BackgroundColor3 = Color3.fromRGB(248, 248, 250)
+                emptyCard.LayoutOrder = 1
+                corner(emptyCard, 14)
+                stroke(emptyCard, Color3.fromRGB(220, 220, 225), 1, 0.3)
+
+                local emptyText = Instance.new("TextLabel", emptyCard)
+                emptyText.Size = UDim2.new(1, 0, 1, 0)
+                emptyText.BackgroundTransparency = 1
+                emptyText.Text = "Belum ada member online\nLoad script dulu di game!"
+                emptyText.TextColor3 = Color3.fromRGB(140, 140, 150)
+                emptyText.Font = Enum.Font.GothamBold
+                emptyText.TextSize = 12
+                emptyText.TextWrapped = true
+                return
+            end
+
+            -- Render tiap player
+            for i, player in ipairs(onlineList) do
+                local isSameServer = (player.jobId == game.JobId)
+                local isSamePlace = (tostring(player.placeId) == tostring(game.PlaceId))
+                local isMe = (tostring(player.userId) == tostring(LocalPlayer.UserId))
+                local isPlayerDev = player.isDev == true
+
+                -- Tinggi card: dev punya PULL button jadi lebih tinggi
+                local cardHeight = (IS_DEV and not isMe) and 100 or 86
+
+                local card = Instance.new("Frame", listHolder)
+                card.Size = UDim2.new(1, 0, 0, cardHeight)
+                card.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+                card.LayoutOrder = i
+                corner(card, 14)
+
+                -- Border warna berdasarkan status
+                if isMe then
+                    stroke(card, Color3.fromRGB(80, 150, 255), 2, 0)
+                elseif isSameServer then
+                    stroke(card, Color3.fromRGB(0, 220, 100), 2, 0)
+                elseif isPlayerDev then
+                    stroke(card, Color3.fromRGB(255, 200, 50), 2, 0)
+                else
+                    stroke(card, Color3.fromRGB(225, 225, 230), 1, 0.3)
+                end
+
+                -- Avatar
+                local avatarFrame = Instance.new("Frame", card)
+                avatarFrame.Size = UDim2.new(0, 52, 0, 52)
+                avatarFrame.Position = UDim2.new(0, 10, 0.5, -26)
+                avatarFrame.BackgroundColor3 = Color3.fromRGB(240, 240, 240)
+                corner(avatarFrame, 100)
+
+                local avatarImg = Instance.new("ImageLabel", avatarFrame)
+                avatarImg.Size = UDim2.new(1, -4, 1, -4)
+                avatarImg.Position = UDim2.new(0.5, 0, 0.5, 0)
+                avatarImg.AnchorPoint = Vector2.new(0.5, 0.5)
+                avatarImg.BackgroundColor3 = Color3.fromRGB(240, 240, 240)
+                avatarImg.Image = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. (player.userId or 0) .. "&width=100&height=100&format=png"
+                corner(avatarImg, 100)
+
+                -- Online dot
+                local dot = Instance.new("Frame", card)
+                dot.Size = UDim2.new(0, 10, 0, 10)
+                dot.Position = UDim2.new(0, 48, 0.5, 14)
+                dot.BackgroundColor3 = Color3.fromRGB(0, 220, 100)
+                corner(dot, 100)
+                stroke(dot, Color3.fromRGB(255, 255, 255), 2, 0)
+
+                -- DEV badge kecil di atas avatar
+                if isPlayerDev then
+                    local devTag = Instance.new("Frame", card)
+                    devTag.Size = UDim2.new(0, 28, 0, 12)
+                    devTag.Position = UDim2.new(0, 10, 0, 8)
+                    devTag.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+                    devTag.BackgroundTransparency = 0.2
+                    devTag.ZIndex = 5
+                    corner(devTag, 6)
+
+                    local devTagText = Instance.new("TextLabel", devTag)
+                    devTagText.Size = UDim2.new(1, 0, 1, 0)
+                    devTagText.BackgroundTransparency = 1
+                    devTagText.Text = "DEV"
+                    devTagText.TextColor3 = Color3.fromRGB(180, 120, 0)
+                    devTagText.Font = Enum.Font.GothamBlack
+                    devTagText.TextSize = 7
+                    devTagText.ZIndex = 6
+                end
+
+                -- Name
+                local nameLbl = Instance.new("TextLabel", card)
+                nameLbl.Size = UDim2.new(1, -180, 0, 20)
+                nameLbl.Position = UDim2.new(0, 70, 0, 10)
+                nameLbl.BackgroundTransparency = 1
+                nameLbl.Text = (isMe and "(You) " or "") .. (player.displayName or player.username or "Unknown")
+                nameLbl.TextColor3 = Color3.fromRGB(30, 30, 30)
+                nameLbl.Font = Enum.Font.GothamBlack
+                nameLbl.TextSize = 13
+                nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+                nameLbl.TextTruncate = Enum.TextTruncate.AtEnd
+
+                -- Username
+                local userLbl = Instance.new("TextLabel", card)
+                userLbl.Size = UDim2.new(1, -180, 0, 14)
+                userLbl.Position = UDim2.new(0, 70, 0, 30)
+                userLbl.BackgroundTransparency = 1
+                userLbl.Text = "@" .. (player.username or "?")
+                userLbl.TextColor3 = Color3.fromRGB(120, 120, 120)
+                userLbl.Font = Enum.Font.Gotham
+                userLbl.TextSize = 9
+                userLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+                -- Server info
+                local serverLbl = Instance.new("TextLabel", card)
+                serverLbl.Size = UDim2.new(1, -180, 0, 14)
+                serverLbl.Position = UDim2.new(0, 70, 0, 44)
+                serverLbl.BackgroundTransparency = 1
+                serverLbl.Text = isSameServer and "✅ Server sama!" or (isSamePlace and "🔹 Map sama, beda server" or "🌐 " .. (player.placeName or "Unknown map"))
+                serverLbl.TextColor3 = isSameServer and Color3.fromRGB(0, 200, 80) or Color3.fromRGB(100, 100, 120)
+                serverLbl.Font = Enum.Font.GothamBold
+                serverLbl.TextSize = 8
+                serverLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+                -- Last seen
+                local elapsed = now - (player.timestamp or now)
+                local elapsedText = elapsed < 60 and (elapsed .. "s ago") or (math.floor(elapsed / 60) .. "m ago")
+                local timeLbl = Instance.new("TextLabel", card)
+                timeLbl.Size = UDim2.new(1, -180, 0, 12)
+                timeLbl.Position = UDim2.new(0, 70, 0, 58)
+                timeLbl.BackgroundTransparency = 1
+                timeLbl.Text = "Updated: " .. elapsedText
+                timeLbl.TextColor3 = Color3.fromRGB(160, 160, 160)
+                timeLbl.Font = Enum.Font.Gotham
+                timeLbl.TextSize = 7
+                timeLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+                -- ===== BUTTONS =====
+                if not isMe then
+                    -- JOIN button (map sama, beda server)
+                    if isSamePlace and not isSameServer then
+                        local joinBtn = Instance.new("TextButton", card)
+                        joinBtn.Size = UDim2.new(0, 65, 0, 28)
+                        joinBtn.Position = UDim2.new(1, -76, 0, 10)
+                        joinBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 80)
+                        joinBtn.Text = "JOIN"
+                        joinBtn.TextColor3 = Color3.new(1, 1, 1)
+                        joinBtn.Font = Enum.Font.GothamBlack
+                        joinBtn.TextSize = 11
+                        joinBtn.AutoButtonColor = false
+                        corner(joinBtn, 8)
+                        pressFX(joinBtn)
+                        joinBtn.MouseButton1Click:Connect(function()
+                            joinBtn.Text = "..."
+                            joinBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+                            pcall(function()
+                                TeleportService:TeleportToPlaceInstance(player.placeId, player.jobId)
+                            end)
+                            task.wait(1.5)
+                            joinBtn.Text = "JOIN"
+                            joinBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 80)
+                        end)
+
+                    -- Beda map: label
+                    else
+                        local diffMap = Instance.new("TextLabel", card)
+                        diffMap.Size = UDim2.new(0, 65, 0, 28)
+                        diffMap.Position = UDim2.new(1, -76, 0, 10)
+                        diffMap.BackgroundColor3 = Color3.fromRGB(245, 245, 248)
+                        diffMap.Text = "Beda Map"
+                        diffMap.TextColor3 = Color3.fromRGB(160, 160, 160)
+                        diffMap.Font = Enum.Font.GothamBold
+                        diffMap.TextSize = 8
+                        corner(diffMap, 8)
+                        stroke(diffMap, Color3.fromRGB(220, 220, 225), 1, 0.3)
+                    end
+
+                    -- PULL button (dev only, semua player kecuali diri sendiri)
+                    if IS_DEV then
+                        local pullBtn = Instance.new("TextButton", card)
+                        pullBtn.Size = UDim2.new(0, 65, 0, 28)
+                        pullBtn.Position = UDim2.new(1, -76, 0, 46)
+                        pullBtn.BackgroundColor3 = Color3.fromRGB(255, 140, 20)
+                        pullBtn.Text = "📥 PULL"
+                        pullBtn.TextColor3 = Color3.new(1, 1, 1)
+                        pullBtn.Font = Enum.Font.GothamBlack
+                        pullBtn.TextSize = 10
+                        pullBtn.AutoButtonColor = false
+                        corner(pullBtn, 8)
+                        pressFX(pullBtn)
+                        pullBtn.MouseButton1Click:Connect(function()
+                            pullBtn.Text = "Sent!"
+                            pullBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 80)
+                            pcall(function() sendPullRequest(player.userId, player.username) end)
+                            showDynamicNotification("Pull sent to " .. (player.displayName or player.username or "?"), Color3.fromRGB(255, 140, 20))
+                            task.wait(2)
+                            pullBtn.Text = "📥 PULL"
+                            pullBtn.BackgroundColor3 = Color3.fromRGB(255, 140, 20)
+                        end)
+                    end
+                end
+            end
+
+            -- Timestamp
+            local stampFrame = Instance.new("Frame", listHolder)
+            stampFrame.Size = UDim2.new(1, 0, 0, 20)
+            stampFrame.BackgroundTransparency = 1
+            stampFrame.LayoutOrder = 999
+
+            local stampText = Instance.new("TextLabel", stampFrame)
+            stampText.Size = UDim2.new(1, 0, 1, 0)
+            stampText.BackgroundTransparency = 1
+            stampText.Text = "Last refresh: " .. os.date("%H:%M:%S")
+            stampText.TextColor3 = Color3.fromRGB(180, 180, 180)
+            stampText.Font = Enum.Font.Gotham
+            stampText.TextSize = 8
+            stampText.TextXAlignment = Enum.TextXAlignment.Center
+        end)
+    end
+
+    -- Auto refresh setiap 30 detik selama di app ini
+    task.spawn(function()
+        while appTitle.Text == "Who's Online" do
+            renderOnlinePlayers()
+            task.wait(30)
+        end
+    end)
+
+    refreshBtn.MouseButton1Click:Connect(function()
+        renderOnlinePlayers()
+        showDynamicNotification("Refreshed!", Color3.fromRGB(0, 200, 80))
+    end)
+end
+
 -- ================= BUILD HOME ICONS =================
 buildAppIcon("Profile",1,dockBg,function() openApp("Profile",openProfileApp) end)
 buildAppIcon("Command",2,dockBg, function() openApp("Commands", openCommandApp) end)
@@ -6802,7 +7718,8 @@ buildAppIcon("Server",12,appGrid,function() openApp("Server",openServerApp) end)
 buildAppIcon("Bundle",13, appGrid, function() openApp("Bundle", openBundleApp) end)
 buildAppIcon("AvatarItems",14, appGrid, function() openApp("Avatar & Items", openAvatarItemsApp) end)
 buildAppIcon("Lookup",15,appGrid, function() openApp("Player Lookup", openPlayerLookupApp) end)
-buildAppIcon("ServerJoiner", 16, appGrid, function() openApp("Server Joiner", openServerJoinerApp) end)
+buildAppIcon("ServerJoiner",16,appGrid, function() openApp("Server Joiner", openServerJoinerApp) end)
+buildAppIcon("Online",17,appGrid, function() openApp("Who's Online", openWhoOnlineApp) end)
 
 -- ==================== FLOATING IPHONE ICON + TABLET MODE (FINAL FIXED) ====================
 -- GANTI seluruh bagian TOOL & EQUIP dan DRAG PHONE dengan ini
