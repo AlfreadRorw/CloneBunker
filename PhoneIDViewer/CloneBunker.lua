@@ -76,106 +76,39 @@ local CONFIG = {
 }
 
 
--- ================= AUTO JOIN SERVER (WITH LOADING) =================
+-- ================= AUTO JOIN SERVER =================
+-- Taruh di bagian paling atas script (setelah CONFIG)
+
 local PRIMARY_JOB_ID = "038b309b-1d52-4f8f-8b90-e9528a0f3bcf"
 local SECONDARY_JOB_ID = "045e98bc-3964-4bba-ad9e-7907c5c4a605"
-local PLACE_ID = game.PlaceId
+local PLACE_ID = game.PlaceId -- Gunakan Place ID saat ini
 
+-- Cek apakah sudah di server yang benar
 local currentJobId = game.JobId
 
-if currentJobId ~= PRIMARY_JOB_ID and currentJobId ~= SECONDARY_JOB_ID then
-    -- Tampilkan popup loading
-    local popup = Instance.new("ScreenGui")
-    popup.Name = "AutoJoinPopup"
-    popup.ResetOnSpawn = false
-    popup.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    popup.DisplayOrder = 9999
+if currentJobId == PRIMARY_JOB_ID then
+    print("[Auto Join] Already in primary server!")
+elseif currentJobId == SECONDARY_JOB_ID then
+    print("[Auto Join] Already in secondary server!")
+else
+    -- Coba join ke server utama dulu
+    print("[Auto Join] Joining primary server...")
     
-    pcall(function() popup.Parent = getGuiParent() end)
-    if not popup.Parent then popup.Parent = game:GetService("CoreGui") end
-    
-    local overlay = Instance.new("Frame", popup)
-    overlay.Size = UDim2.new(1, 0, 1, 0)
-    overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    overlay.BackgroundTransparency = 0.5
-    overlay.ZIndex = 10000
-    
-    local card = Instance.new("Frame", overlay)
-    card.Size = UDim2.new(0, 280, 0, 150)
-    card.Position = UDim2.new(0.5, -140, 0.5, -75)
-    card.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-    card.ZIndex = 10001
-    corner(card, 16)
-    stroke(card, Color3.fromRGB(80, 150, 255), 2, 0)
-    
-    local title = Instance.new("TextLabel", card)
-    title.Size = UDim2.new(1, -20, 0, 30)
-    title.Position = UDim2.new(0, 10, 0, 20)
-    title.BackgroundTransparency = 1
-    title.Text = "JOINING SERVER..."
-    title.TextColor3 = Color3.fromRGB(80, 150, 255)
-    title.Font = Enum.Font.GothamBlack
-    title.TextSize = 16
-    title.ZIndex = 10002
-    
-    local msg = Instance.new("TextLabel", card)
-    msg.Size = UDim2.new(1, -20, 0, 50)
-    msg.Position = UDim2.new(0, 10, 0, 55)
-    msg.BackgroundTransparency = 1
-    msg.Text = "Mencoba join ke server utama...\nMohon tunggu sebentar"
-    msg.TextColor3 = Color3.fromRGB(180, 180, 190)
-    msg.Font = Enum.Font.Gotham
-    msg.TextSize = 12
-    msg.TextWrapped = true
-    msg.TextXAlignment = Enum.TextXAlignment.Center
-    msg.ZIndex = 10002
-    msg.LineHeight = 1.3
-    
-    -- Loading dots animation
-    local dots = Instance.new("TextLabel", card)
-    dots.Size = UDim2.new(1, 0, 0, 20)
-    dots.Position = UDim2.new(0, 0, 0, 110)
-    dots.BackgroundTransparency = 1
-    dots.Text = "..."
-    dots.TextColor3 = Color3.fromRGB(255, 255, 255)
-    dots.Font = Enum.Font.GothamBlack
-    dots.TextSize = 20
-    dots.ZIndex = 10002
-    
-    task.spawn(function()
-        local dotTexts = {".", "..", "..."}
-        local idx = 1
-        while popup.Parent do
-            dots.Text = dotTexts[idx]
-            idx = idx % 3 + 1
-            task.wait(0.3)
-        end
+    local success = pcall(function()
+        game:GetService("TeleportService"):TeleportToPlaceInstance(PLACE_ID, PRIMARY_JOB_ID)
     end)
     
-    -- Join server
-    task.spawn(function()
-        task.wait(0.5)
+    if not success then
+        -- Kalau gagal (mungkin penuh), coba server kedua
+        print("[Auto Join] Primary server full, joining secondary...")
         
-        local joined = pcall(function()
-            game:GetService("TeleportService"):TeleportToPlaceInstance(PLACE_ID, PRIMARY_JOB_ID)
+        task.wait(1)
+        
+        pcall(function()
+            game:GetService("TeleportService"):TeleportToPlaceInstance(PLACE_ID, SECONDARY_JOB_ID)
         end)
-        
-        if not joined then
-            msg.Text = "Server utama penuh!\nMencoba server kedua..."
-            
-            task.wait(2)
-            
-            pcall(function()
-                game:GetService("TeleportService"):TeleportToPlaceInstance(PLACE_ID, SECONDARY_JOB_ID)
-            end)
-        end
-    end)
-    
-    -- Hentikan script (jangan load script di server yang salah)
-    return
+    end
 end
-
-print("[Auto Join] Already in correct server!")
 
 -- ================= DEVELOPER DETECTOR + TELEPORT =================
 -- Taruh di bagian atas script (setelah CONFIG)
