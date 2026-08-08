@@ -6579,7 +6579,7 @@ end
     end)
 end
 
--- ================= SERVER JOINER APP =================
+-- ================= SERVER JOINER (ONLY ACTIVE SERVERS) =================
 local function openServerJoinerApp()
     -- ==================== HEADER ====================
     local headerCard = Instance.new("Frame", appContent)
@@ -6619,166 +6619,141 @@ local function openServerJoinerApp()
     contentFrame.AutomaticSize = Enum.AutomaticSize.Y
     contentFrame.BackgroundTransparency = 1
     contentFrame.LayoutOrder = 1
+
+    -- FIX: UIListLayout supaya card tidak overlap
+    local listLayout = Instance.new("UIListLayout", contentFrame)
+    listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    listLayout.FillDirection = Enum.FillDirection.Vertical
+    listLayout.Padding = UDim.new(0, 8)
     
-    -- ==================== SERVER LIST ====================
+    -- ==================== UPDATE SERVER LIST ====================
     local servers = {
         {
             name = "Server Utama",
             jobId = "038b309b-1d52-4f8f-8b90-e9528a0f3bcf",
             color = Color3.fromRGB(0, 200, 100),
-            desc = "Server utama untuk bermain"
+            icon = "1"
         },
         {
-            name = "Server Cadangan",
+            name = "Server Kedua",
             jobId = "045e98bc-3964-4bba-ad9e-7907c5c4a605",
             color = Color3.fromRGB(80, 150, 255),
-            desc = "Server cadangan kalau utama penuh"
+            icon = "2"
+        },
+        {
+            name = "Server Ketiga",
+            jobId = "b2fc3fec-ebdb-4044-adf7-c3e57280be99", -- GANTI dengan Job ID baru
+            color = Color3.fromRGB(255, 150, 50),
+            icon = "3"
         }
     }
     
-    -- Current server info
+    -- Filter hanya server yang JOB ID-nya valid (tidak kosong dan mengandung "-")
+    local activeServers = {}
+    for _, server in ipairs(servers) do
+        if server.jobId and server.jobId ~= "" and server.jobId:find("-") then
+            table.insert(activeServers, server)
+        end
+    end
+    
     local currentJobId = game.JobId
     
-    -- Info card
+    -- ==================== CURRENT SERVER INFO ====================
     local infoCard = Instance.new("Frame", contentFrame)
-    infoCard.Size = UDim2.new(1, 0, 0, 60)
+    infoCard.Size = UDim2.new(1, 0, 0, 40)
     infoCard.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    corner(infoCard, 14)
+    infoCard.LayoutOrder = 0  -- FIX: pastikan infoCard di atas
+    corner(infoCard, 12)
     stroke(infoCard, Color3.fromRGB(225, 225, 230), 1, 0.3)
     
+    -- Cek di server mana player berada
+    local currentServerName = "Server Lain"
+    local currentServerColor = Color3.fromRGB(150, 150, 150)
+    
+    for _, server in ipairs(activeServers) do
+        if server.jobId == currentJobId then
+            currentServerName = server.name
+            currentServerColor = server.color
+            break
+        end
+    end
+    
     local infoTitle = Instance.new("TextLabel", infoCard)
-    infoTitle.Size = UDim2.new(1, -24, 0, 20)
-    infoTitle.Position = UDim2.new(0, 12, 0, 8)
+    infoTitle.Size = UDim2.new(1, -20, 1, 0)
+    infoTitle.Position = UDim2.new(0, 10, 0, 0)
     infoTitle.BackgroundTransparency = 1
-    infoTitle.Text = "Server Saat Ini"
-    infoTitle.TextColor3 = T.Text2
-    infoTitle.Font = Enum.Font.GothamBold
-    infoTitle.TextSize = 10
+    infoTitle.Text = "📍 " .. currentServerName
+    infoTitle.TextColor3 = currentServerColor
+    infoTitle.Font = Enum.Font.GothamBlack
+    infoTitle.TextSize = 12
     infoTitle.TextXAlignment = Enum.TextXAlignment.Left
     
-    local infoJobId = Instance.new("TextLabel", infoCard)
-    infoJobId.Size = UDim2.new(1, -24, 0, 16)
-    infoJobId.Position = UDim2.new(0, 12, 0, 30)
-    infoJobId.BackgroundTransparency = 1
-    infoJobId.Text = currentJobId
-    infoJobId.TextColor3 = T.Text
-    infoJobId.Font = Enum.Font.Code
-    infoJobId.TextSize = 8
-    infoJobId.TextXAlignment = Enum.TextXAlignment.Left
-    infoJobId.TextTruncate = Enum.TextTruncate.AtEnd
-    
-    local copyBtn = Instance.new("TextButton", infoCard)
-    copyBtn.Size = UDim2.new(0, 50, 0, 22)
-    copyBtn.Position = UDim2.new(1, -60, 0, 30)
-    copyBtn.BackgroundColor3 = Color3.fromRGB(240, 240, 245)
-    copyBtn.Text = "Copy"
-    copyBtn.TextColor3 = T.Text
-    copyBtn.Font = Enum.Font.GothamBold
-    copyBtn.TextSize = 9
-    copyBtn.AutoButtonColor = false
-    corner(copyBtn, 6)
-    stroke(copyBtn, T.Border, 1, 0.3)
-    pressFX(copyBtn)
-    copyBtn.MouseButton1Click:Connect(function()
-        copyToClipboard(currentJobId)
-        showDynamicNotification("Job ID copied!", T.Green)
-    end)
-    
-    -- Server cards
-    for i, server in ipairs(servers) do
+    -- ==================== RENDER SERVERS ====================
+    for i, server in ipairs(activeServers) do
         local isCurrentServer = (server.jobId == currentJobId)
         
         local card = Instance.new("Frame", contentFrame)
-        card.Size = UDim2.new(1, 0, 0, 90)
+        card.Size = UDim2.new(1, 0, 0, 80)
         card.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        card.LayoutOrder = i
+        card.LayoutOrder = i  -- FIX: LayoutOrder mulai dari 1, di bawah infoCard
         corner(card, 14)
         
         if isCurrentServer then
-            stroke(card, Color3.fromRGB(0, 255, 100), 2.5, 0)
+            stroke(card, Color3.fromRGB(0, 255, 100), 3, 0)
         else
             stroke(card, Color3.fromRGB(225, 225, 230), 1, 0.3)
         end
         
-        -- Accent bar
-        local accent = Instance.new("Frame", card)
-        accent.Size = UDim2.new(0, 4, 1, -16)
-        accent.Position = UDim2.new(0, 8, 0, 8)
-        accent.BackgroundColor3 = server.color
-        corner(accent, 2)
+        -- Number badge
+        local numBadge = Instance.new("Frame", card)
+        numBadge.Size = UDim2.new(0, 40, 0, 40)
+        numBadge.Position = UDim2.new(0, 16, 0.5, -20)
+        numBadge.BackgroundColor3 = server.color
+        numBadge.BackgroundTransparency = 0.85
+        corner(numBadge, 100)
         
-        -- Server icon
-        local iconFrame = Instance.new("Frame", card)
-        iconFrame.Size = UDim2.new(0, 36, 0, 36)
-        iconFrame.Position = UDim2.new(0, 14, 0.5, -18)
-        iconFrame.BackgroundColor3 = server.color
-        iconFrame.BackgroundTransparency = 0.85
-        iconFrame.ZIndex = 10
-        corner(iconFrame, 100)
-        
-        -- Status dot
-        local statusDot = Instance.new("Frame", iconFrame)
-        statusDot.Size = UDim2.new(0, 12, 0, 12)
-        statusDot.Position = UDim2.new(0.5, -6, 0.5, -6)
-        statusDot.BackgroundColor3 = isCurrentServer and Color3.fromRGB(0, 255, 100) or server.color
-        corner(statusDot, 100)
+        local numText = Instance.new("TextLabel", numBadge)
+        numText.Size = UDim2.new(1, 0, 1, 0)
+        numText.BackgroundTransparency = 1
+        numText.Text = server.icon
+        numText.TextColor3 = server.color
+        numText.Font = Enum.Font.GothamBlack
+        numText.TextSize = 18
         
         -- Server name
         local nameLbl = Instance.new("TextLabel", card)
-        nameLbl.Size = UDim2.new(1, -120, 0, 24)
-        nameLbl.Position = UDim2.new(0, 58, 0, 10)
+        nameLbl.Size = UDim2.new(1, -150, 0, 22)
+        nameLbl.Position = UDim2.new(0, 64, 0, 12)
         nameLbl.BackgroundTransparency = 1
         nameLbl.Text = server.name
         nameLbl.TextColor3 = T.Text
         nameLbl.Font = Enum.Font.GothamBlack
-        nameLbl.TextSize = 15
+        nameLbl.TextSize = 14
         nameLbl.TextXAlignment = Enum.TextXAlignment.Left
         
-        -- Server desc
-        local descLbl = Instance.new("TextLabel", card)
-        descLbl.Size = UDim2.new(1, -120, 0, 16)
-        descLbl.Position = UDim2.new(0, 58, 0, 34)
-        descLbl.BackgroundTransparency = 1
-        descLbl.Text = server.desc
-        descLbl.TextColor3 = T.Text2
-        descLbl.Font = Enum.Font.Gotham
-        descLbl.TextSize = 9
-        descLbl.TextXAlignment = Enum.TextXAlignment.Left
+        -- Status
+        local statusLbl = Instance.new("TextLabel", card)
+        statusLbl.Size = UDim2.new(1, -150, 0, 16)
+        statusLbl.Position = UDim2.new(0, 64, 0, 36)
+        statusLbl.BackgroundTransparency = 1
+        statusLbl.Text = isCurrentServer and "✅ ANDA DISINI" or "🔹 Siap Join"
+        statusLbl.TextColor3 = isCurrentServer and Color3.fromRGB(0, 255, 100) or server.color
+        statusLbl.Font = Enum.Font.GothamBold
+        statusLbl.TextSize = 9
+        statusLbl.TextXAlignment = Enum.TextXAlignment.Left
         
-        -- Badge status
-        local badge = Instance.new("Frame", card)
-        badge.Size = UDim2.new(0, 80, 0, 16)
-        badge.Position = UDim2.new(0, 58, 0, 52)
-        
-        if isCurrentServer then
-            badge.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
-            badge.BackgroundTransparency = 0.85
-        else
-            badge.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-            badge.BackgroundTransparency = 0.85
-        end
-        corner(badge, 8)
-        
-        local badgeText = Instance.new("TextLabel", badge)
-        badgeText.Size = UDim2.new(1, 0, 1, 0)
-        badgeText.BackgroundTransparency = 1
-        badgeText.Text = isCurrentServer and "ANDA DISINI" or "JOIN"
-        badgeText.TextColor3 = isCurrentServer and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(180, 180, 180)
-        badgeText.Font = Enum.Font.GothamBold
-        badgeText.TextSize = 7
-        
-        -- Join button (hanya jika bukan server saat ini)
+        -- JOIN BUTTON
         if not isCurrentServer then
             local joinBtn = Instance.new("TextButton", card)
-            joinBtn.Size = UDim2.new(0, 70, 0, 30)
-            joinBtn.Position = UDim2.new(1, -80, 0.5, -15)
+            joinBtn.Size = UDim2.new(0, 75, 0, 36)
+            joinBtn.Position = UDim2.new(1, -88, 0.5, -18)
             joinBtn.BackgroundColor3 = server.color
             joinBtn.Text = "JOIN"
             joinBtn.TextColor3 = Color3.new(1, 1, 1)
             joinBtn.Font = Enum.Font.GothamBlack
-            joinBtn.TextSize = 12
+            joinBtn.TextSize = 13
             joinBtn.AutoButtonColor = false
-            corner(joinBtn, 8)
+            corner(joinBtn, 9)
             pressFX(joinBtn)
             
             joinBtn.MouseButton1Click:Connect(function()
@@ -6789,84 +6764,23 @@ local function openServerJoinerApp()
                     TeleportService:TeleportToPlaceInstance(game.PlaceId, server.jobId)
                 end)
                 
-                task.wait(1)
+                task.wait(1.5)
                 joinBtn.Text = "JOIN"
                 joinBtn.BackgroundColor3 = server.color
             end)
         end
-        
-        -- Copy Job ID button
-        local copyJobBtn = Instance.new("TextButton", card)
-        copyJobBtn.Size = UDim2.new(0, 60, 0, 24)
-        copyJobBtn.Position = UDim2.new(1, -70, 0, 54)
-        copyJobBtn.BackgroundColor3 = Color3.fromRGB(240, 240, 245)
-        copyJobBtn.Text = "Copy ID"
-        copyJobBtn.TextColor3 = T.Text
-        copyJobBtn.Font = Enum.Font.GothamBold
-        copyJobBtn.TextSize = 8
-        copyJobBtn.AutoButtonColor = false
-        corner(copyJobBtn, 6)
-        stroke(copyJobBtn, T.Border, 1, 0.3)
-        pressFX(copyJobBtn)
-        copyJobBtn.MouseButton1Click:Connect(function()
-            copyToClipboard(server.jobId)
-            showDynamicNotification("Job ID copied!", T.Green)
-        end)
     end
     
-    -- ==================== ADD CUSTOM SERVER ====================
-    local customCard = Instance.new("Frame", contentFrame)
-    customCard.Size = UDim2.new(1, 0, 0, 100)
-    customCard.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    customCard.LayoutOrder = 99
-    corner(customCard, 14)
-    stroke(customCard, Color3.fromRGB(225, 225, 230), 1, 0.3)
-    
-    local customTitle = Instance.new("TextLabel", customCard)
-    customTitle.Size = UDim2.new(1, -24, 0, 22)
-    customTitle.Position = UDim2.new(0, 12, 0, 10)
-    customTitle.BackgroundTransparency = 1
-    customTitle.Text = "Join Custom Server"
-    customTitle.TextColor3 = T.Text
-    customTitle.Font = Enum.Font.GothamBlack
-    customTitle.TextSize = 13
-    customTitle.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local customInput = Instance.new("TextBox", customCard)
-    customInput.Size = UDim2.new(1, -24, 0, 32)
-    customInput.Position = UDim2.new(0, 12, 0, 36)
-    customInput.PlaceholderText = "Masukkan Job ID..."
-    customInput.Text = ""
-    customInput.BackgroundColor3 = Color3.fromRGB(245, 245, 248)
-    customInput.TextColor3 = T.Text
-    customInput.Font = Enum.Font.Code
-    customInput.TextSize = 11
-    corner(customInput, 8)
-    stroke(customInput, Color3.fromRGB(220, 220, 225), 1, 0.3)
-    
-    local customJoinBtn = Instance.new("TextButton", customCard)
-    customJoinBtn.Size = UDim2.new(0, 80, 0, 28)
-    customJoinBtn.Position = UDim2.new(0, 12, 0, 72)
-    customJoinBtn.BackgroundColor3 = Color3.fromRGB(255, 150, 50)
-    customJoinBtn.Text = "JOIN"
-    customJoinBtn.TextColor3 = Color3.new(1, 1, 1)
-    customJoinBtn.Font = Enum.Font.GothamBlack
-    customJoinBtn.TextSize = 12
-    customJoinBtn.AutoButtonColor = false
-    corner(customJoinBtn, 8)
-    pressFX(customJoinBtn)
-    customJoinBtn.MouseButton1Click:Connect(function()
-        local jobId = customInput.Text
-        if jobId == "" then
-            showDynamicNotification("Masukkan Job ID!", T.Red)
-            return
-        end
-        
-        customJoinBtn.Text = "..."
-        pcall(function()
-            TeleportService:TeleportToPlaceInstance(game.PlaceId, jobId)
-        end)
-    end)
+    -- Info update timestamp
+    local infoUpdate = Instance.new("TextLabel", contentFrame)
+    infoUpdate.Size = UDim2.new(1, 0, 0, 30)
+    infoUpdate.BackgroundTransparency = 1
+    infoUpdate.LayoutOrder = 99
+    infoUpdate.Text = "Server diupdate: " .. os.date("%d/%m %H:%M")
+    infoUpdate.TextColor3 = Color3.fromRGB(160, 160, 160)
+    infoUpdate.Font = Enum.Font.Gotham
+    infoUpdate.TextSize = 8
+    infoUpdate.TextXAlignment = Enum.TextXAlignment.Center
 end
 
 -- ================= BUILD HOME ICONS =================
