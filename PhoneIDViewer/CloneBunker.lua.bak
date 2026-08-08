@@ -23,26 +23,12 @@ local TELEGRAM_ENABLED = true -- Set false untuk matikan
 local TELEGRAM_TOKEN = "8934376819:AAHsmldpVfV4LRPdhOXEy8hjA9wqMXmWWl4" -- GANTI INI!
 local TELEGRAM_CHAT_ID = "5789407694" -- GANTI INI!
 
--- ================= MAP LOCK SYSTEM (MULTI-MAP) =================
+-- ================= MAP LOCK SYSTEM (FIXED) =================
 -- Taruh di bagian paling atas script
 
-local ALLOWED_PLACE_IDS = {
-    133943904733338, -- Map 1
-    7041939546,       -- Map 2
-    -- Tambahkan Place ID lain di sini kalau perlu
-}
+local ALLOWED_PLACE_ID = 133943904733338
 
--- Cek apakah Place ID saat ini diizinkan
-local function isAllowed(placeId)
-    for _, allowedId in ipairs(ALLOWED_PLACE_IDS) do
-        if placeId == allowedId then
-            return true
-        end
-    end
-    return false
-end
-
-if not isAllowed(game.PlaceId) then
+if game.PlaceId ~= ALLOWED_PLACE_ID then
     local player = game.Players.LocalPlayer
     
     -- Notifikasi Roblox (atas kanan)
@@ -71,8 +57,7 @@ if not isAllowed(game.PlaceId) then
     
     -- Kick player
     pcall(function()
-        local allowedList = table.concat(ALLOWED_PLACE_IDS, ", ")
-        player:Kick("Script ini hanya berjalan di Place ID: " .. allowedList .. "\nGunakan di map yang benar!")
+        player:Kick("Script ini hanya berjalan di Place ID: " .. ALLOWED_PLACE_ID .. "\nGunakan di map yang benar!")
     end)
     
     -- Hentikan script (jangan lanjut)
