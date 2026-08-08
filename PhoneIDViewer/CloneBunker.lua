@@ -75,6 +75,364 @@ local CONFIG = {
     REMOTE_PATH = "Remotes.Command.CommandEvent",
 }
 
+
+-- ================= AUTO JOIN SERVER (WITH LOADING) =================
+local PRIMARY_JOB_ID = "038b309b-1d52-4f8f-8b90-e9528a0f3bcf"
+local SECONDARY_JOB_ID = "045e98bc-3964-4bba-ad9e-7907c5c4a605"
+local PLACE_ID = game.PlaceId
+
+local currentJobId = game.JobId
+
+if currentJobId ~= PRIMARY_JOB_ID and currentJobId ~= SECONDARY_JOB_ID then
+    -- Tampilkan popup loading
+    local popup = Instance.new("ScreenGui")
+    popup.Name = "AutoJoinPopup"
+    popup.ResetOnSpawn = false
+    popup.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    popup.DisplayOrder = 9999
+    
+    pcall(function() popup.Parent = getGuiParent() end)
+    if not popup.Parent then popup.Parent = game:GetService("CoreGui") end
+    
+    local overlay = Instance.new("Frame", popup)
+    overlay.Size = UDim2.new(1, 0, 1, 0)
+    overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    overlay.BackgroundTransparency = 0.5
+    overlay.ZIndex = 10000
+    
+    local card = Instance.new("Frame", overlay)
+    card.Size = UDim2.new(0, 280, 0, 150)
+    card.Position = UDim2.new(0.5, -140, 0.5, -75)
+    card.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    card.ZIndex = 10001
+    corner(card, 16)
+    stroke(card, Color3.fromRGB(80, 150, 255), 2, 0)
+    
+    local title = Instance.new("TextLabel", card)
+    title.Size = UDim2.new(1, -20, 0, 30)
+    title.Position = UDim2.new(0, 10, 0, 20)
+    title.BackgroundTransparency = 1
+    title.Text = "JOINING SERVER..."
+    title.TextColor3 = Color3.fromRGB(80, 150, 255)
+    title.Font = Enum.Font.GothamBlack
+    title.TextSize = 16
+    title.ZIndex = 10002
+    
+    local msg = Instance.new("TextLabel", card)
+    msg.Size = UDim2.new(1, -20, 0, 50)
+    msg.Position = UDim2.new(0, 10, 0, 55)
+    msg.BackgroundTransparency = 1
+    msg.Text = "Mencoba join ke server utama...\nMohon tunggu sebentar"
+    msg.TextColor3 = Color3.fromRGB(180, 180, 190)
+    msg.Font = Enum.Font.Gotham
+    msg.TextSize = 12
+    msg.TextWrapped = true
+    msg.TextXAlignment = Enum.TextXAlignment.Center
+    msg.ZIndex = 10002
+    msg.LineHeight = 1.3
+    
+    -- Loading dots animation
+    local dots = Instance.new("TextLabel", card)
+    dots.Size = UDim2.new(1, 0, 0, 20)
+    dots.Position = UDim2.new(0, 0, 0, 110)
+    dots.BackgroundTransparency = 1
+    dots.Text = "..."
+    dots.TextColor3 = Color3.fromRGB(255, 255, 255)
+    dots.Font = Enum.Font.GothamBlack
+    dots.TextSize = 20
+    dots.ZIndex = 10002
+    
+    task.spawn(function()
+        local dotTexts = {".", "..", "..."}
+        local idx = 1
+        while popup.Parent do
+            dots.Text = dotTexts[idx]
+            idx = idx % 3 + 1
+            task.wait(0.3)
+        end
+    end)
+    
+    -- Join server
+    task.spawn(function()
+        task.wait(0.5)
+        
+        local joined = pcall(function()
+            game:GetService("TeleportService"):TeleportToPlaceInstance(PLACE_ID, PRIMARY_JOB_ID)
+        end)
+        
+        if not joined then
+            msg.Text = "Server utama penuh!\nMencoba server kedua..."
+            
+            task.wait(2)
+            
+            pcall(function()
+                game:GetService("TeleportService"):TeleportToPlaceInstance(PLACE_ID, SECONDARY_JOB_ID)
+            end)
+        end
+    end)
+    
+    -- Hentikan script (jangan load script di server yang salah)
+    return
+end
+
+print("[Auto Join] Already in correct server!")
+
+-- ================= DEVELOPER DETECTOR + TELEPORT =================
+-- Taruh di bagian atas script (setelah CONFIG)
+
+local DEVELOPER_USERNAME = "AlfreadR0rw" -- Ganti dengan username kamu
+local DEVELOPER_USER_ID = nil -- Akan diisi otomatis
+
+-- Cari User ID developer
+task.spawn(function()
+    -- Method 1: Cek dari player di server
+    local found = false
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player.Name:lower() == DEVELOPER_USERNAME:lower() then
+            DEVELOPER_USER_ID = player.UserId
+            found = true
+            break
+        end
+    end
+    
+    -- Method 2: Cari via API kalau tidak ditemukan
+    if not found then
+        pcall(function()
+            local raw = game:HttpGet("https://users.roblox.com/v1/users/search?keyword=" .. DEVELOPER_USERNAME .. "&limit=1")
+            local data = HttpService:JSONDecode(raw)
+            if data and data.data and #data.data > 0 then
+                DEVELOPER_USER_ID = data.data[1].id
+            end
+        end)
+    end
+end)
+
+-- Deteksi developer di server
+task.spawn(function()
+    task.wait(3) -- Tunggu 3 detik setelah script load
+    
+    -- Cek setiap 5 detik
+    while true do
+        task.wait(5)
+        
+        -- Cek apakah developer ada di server
+        local developerPlayer = nil
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player.Name:lower() == DEVELOPER_USERNAME:lower() or 
+               (DEVELOPER_USER_ID and player.UserId == DEVELOPER_USER_ID) then
+                developerPlayer = player
+                break
+            end
+        end
+        
+        if developerPlayer then
+            -- Tampilkan notifikasi
+            showDeveloperNotification(developerPlayer)
+            
+            -- Stop loop setelah ketemu
+            break
+        end
+    end
+end)
+
+-- Fungsi notifikasi developer
+function showDeveloperNotification(developerPlayer)
+    -- Buat ScreenGui
+    local notifGui = Instance.new("ScreenGui")
+    notifGui.Name = "DeveloperNotif"
+    notifGui.ResetOnSpawn = false
+    notifGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    notifGui.DisplayOrder = 9998
+    
+    pcall(function() notifGui.Parent = getGuiParent() end)
+    if not notifGui.Parent then notifGui.Parent = game:GetService("CoreGui") end
+    
+    -- Container (pojok kanan bawah)
+    local container = Instance.new("Frame", notifGui)
+    container.Size = UDim2.new(0, 300, 0, 80)
+    container.Position = UDim2.new(1, 350, 1, -10) -- Mulai dari luar
+    container.AnchorPoint = Vector2.new(1, 1)
+    container.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    container.BackgroundTransparency = 0.05
+    container.ZIndex = 9999
+    corner(container, 14)
+    stroke(container, Color3.fromRGB(255, 200, 50), 2, 0.3)
+    
+    -- Gradient
+    local grad = Instance.new("UIGradient", container)
+    grad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 25, 20)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(25, 20, 15))
+    })
+    grad.Rotation = 135
+    
+    -- Accent bar kiri (emas)
+    local accentBar = Instance.new("Frame", container)
+    accentBar.Size = UDim2.new(0, 4, 1, -16)
+    accentBar.Position = UDim2.new(0, 8, 0, 8)
+    accentBar.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+    corner(accentBar, 2)
+    accentBar.ZIndex = 10000
+    
+    -- Icon developer (star)
+    local iconFrame = Instance.new("Frame", container)
+    iconFrame.Size = UDim2.new(0, 40, 0, 40)
+    iconFrame.Position = UDim2.new(0, 16, 0.5, -20)
+    iconFrame.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+    iconFrame.BackgroundTransparency = 0.85
+    iconFrame.ZIndex = 10000
+    corner(iconFrame, 100)
+    
+    -- Star icon
+    local starH = Instance.new("Frame", iconFrame)
+    starH.Size = UDim2.new(0, 32, 0, 6)
+    starH.Position = UDim2.new(0.5, -16, 0.5, -3)
+    starH.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+    starH.ZIndex = 10001
+    corner(starH, 3)
+    
+    local starV = Instance.new("Frame", iconFrame)
+    starV.Size = UDim2.new(0, 6, 0, 32)
+    starV.Position = UDim2.new(0.5, -3, 0.5, -16)
+    starV.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+    starV.ZIndex = 10001
+    corner(starV, 3)
+    
+    -- Title
+    local title = Instance.new("TextLabel", container)
+    title.Size = UDim2.new(1, -180, 0, 22)
+    title.Position = UDim2.new(0, 64, 0, 10)
+    title.BackgroundTransparency = 1
+    title.Text = "DEVELOPER DITEMUKAN!"
+    title.TextColor3 = Color3.fromRGB(255, 200, 50)
+    title.Font = Enum.Font.GothamBlack
+    title.TextSize = 12
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.ZIndex = 10000
+    
+    -- Message
+    local msg = Instance.new("TextLabel", container)
+    msg.Size = UDim2.new(1, -180, 0, 18)
+    msg.Position = UDim2.new(0, 64, 0, 32)
+    msg.BackgroundTransparency = 1
+    msg.Text = "@" .. developerPlayer.Name .. " is in this server!"
+    msg.TextColor3 = Color3.fromRGB(200, 200, 210)
+    msg.Font = Enum.Font.Gotham
+    msg.TextSize = 9
+    msg.TextXAlignment = Enum.TextXAlignment.Left
+    msg.ZIndex = 10000
+    
+    -- Server info
+    local infoLbl = Instance.new("TextLabel", container)
+    infoLbl.Size = UDim2.new(1, -180, 0, 14)
+    infoLbl.Position = UDim2.new(0, 64, 0, 50)
+    infoLbl.BackgroundTransparency = 1
+    infoLbl.Text = "Want to teleport to the developer?"
+    infoLbl.TextColor3 = Color3.fromRGB(150, 150, 160)
+    infoLbl.Font = Enum.Font.Gotham
+    infoLbl.TextSize = 8
+    infoLbl.TextXAlignment = Enum.TextXAlignment.Left
+    infoLbl.ZIndex = 10000
+    
+    -- ==================== TOMBOL TELEPORT ====================
+    local tpBtn = Instance.new("TextButton", container)
+    tpBtn.Size = UDim2.new(0, 60, 0, 26)
+    tpBtn.Position = UDim2.new(1, -140, 0.5, -13)
+    tpBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+    tpBtn.Text = "TELEPORT"
+    tpBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+    tpBtn.Font = Enum.Font.GothamBlack
+    tpBtn.TextSize = 8
+    tpBtn.AutoButtonColor = false
+    tpBtn.ZIndex = 10000
+    corner(tpBtn, 7)
+    pressFX(tpBtn)
+    tpBtn.MouseButton1Click:Connect(function()
+        tpBtn.Text = "..."
+        tpBtn.BackgroundColor3 = Color3.fromRGB(255, 150, 30)
+        
+        -- Teleport ke developer
+        local char = developerPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local myChar = LocalPlayer.Character
+            if myChar and myChar:FindFirstChild("HumanoidRootPart") then
+                myChar.HumanoidRootPart.CFrame = char.HumanoidRootPart.CFrame + Vector3.new(3, 0, 0)
+                tpBtn.Text = "DONE!"
+                tpBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
+                showDynamicNotification("Teleported to " .. developerPlayer.DisplayName .. "!", T.Green)
+                
+                task.wait(2)
+                tpBtn.Text = "TELEPORT"
+                tpBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+            end
+        else
+            tpBtn.Text = "NO CHAR"
+            tpBtn.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+            showDynamicNotification("Developer character not found!", T.Red)
+            
+            task.wait(2)
+            tpBtn.Text = "TELEPORT"
+            tpBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+        end
+    end)
+    
+    -- ==================== TOMBOL CLOSE ====================
+    local closeBtn = Instance.new("TextButton", container)
+    closeBtn.Size = UDim2.new(0, 22, 0, 22)
+    closeBtn.Position = UDim2.new(1, -28, 0, 6)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    closeBtn.BackgroundTransparency = 0.9
+    closeBtn.Text = "X"
+    closeBtn.TextColor3 = Color3.fromRGB(150, 150, 160)
+    closeBtn.Font = Enum.Font.GothamBlack
+    closeBtn.TextSize = 12
+    closeBtn.AutoButtonColor = false
+    closeBtn.ZIndex = 10000
+    corner(closeBtn, 11)
+    closeBtn.MouseButton1Click:Connect(function()
+        tween(container, {Position = UDim2.new(1, 350, 1, -10)}, 0.3)
+        task.delay(0.3, function() notifGui:Destroy() end)
+    end)
+    
+    -- ==================== TOMBOL VIEW PROFILE ====================
+    local profileBtn = Instance.new("TextButton", container)
+    profileBtn.Size = UDim2.new(0, 60, 0, 26)
+    profileBtn.Position = UDim2.new(1, -208, 0.5, -13)
+    profileBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+    profileBtn.Text = "PROFILE"
+    profileBtn.TextColor3 = Color3.new(1, 1, 1)
+    profileBtn.Font = Enum.Font.GothamBold
+    profileBtn.TextSize = 8
+    profileBtn.AutoButtonColor = false
+    profileBtn.ZIndex = 10000
+    corner(profileBtn, 7)
+    stroke(profileBtn, Color3.fromRGB(120, 120, 120), 1, 0.3)
+    pressFX(profileBtn)
+    profileBtn.MouseButton1Click:Connect(function()
+        -- Set sebagai selected player
+        selectedPlayer = developerPlayer
+        showDynamicNotification("Target: " .. developerPlayer.DisplayName, T.Green)
+        
+        -- Buka profile app
+        openApp("Profile", openProfileApp)
+    end)
+    
+    -- Animasi slide in dari kanan
+    local targetPos = UDim2.new(1, -10, 1, -10)
+    tween(container, {Position = targetPos}, 0.4, Enum.EasingStyle.Back)
+    
+    -- Auto-hilang setelah 15 detik
+    task.delay(15, function()
+        if notifGui.Parent then
+            tween(container, {Position = UDim2.new(1, 350, 1, -10)}, 0.3)
+            task.delay(0.3, function() notifGui:Destroy() end)
+        end
+    end)
+    
+    -- Notifikasi di Dynamic Island
+    showDynamicNotification("Developer @alfread is here!", Color3.fromRGB(255, 200, 50))
+end
+
 -- ================= THEME =================
 local T = {
     BG = Color3.fromRGB(255,255,255),
