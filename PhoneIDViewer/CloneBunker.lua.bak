@@ -110,273 +110,278 @@ else
     end
 end
 
--- ================= TARGETS =================
+-- ================= TEAM MAP PIN INDICATOR (FIXED - SELF + OTHERS) =================
+-- Taruh di bagian atas script (setelah CONFIG)
+
 local TARGETS = {
     -- Developer (Emas)
-    {username = "AlfreadR0rw",        text = "DEV",    color = Color3.fromRGB(255, 200, 50)},
-
+    {username = "Hicutee01", text = "DEVELOPER", color = Color3.fromRGB(255, 200, 50)},
+    
     -- Members (Biru)
-    {username = "matchapii04",         text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
-    {username = "akbarfbrynn",         text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
-    {username = "BLAZEBUBz",           text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
-    {username = "LexxSugar7",          text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
-    {username = "Dap_Mahatir",         text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
-    {username = "Jv4n00X",             text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
-    {username = "Hx8shve3",            text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
-    {username = "Chinatsu0263",        text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
-    {username = "dimasbani_9",         text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
-    {username = "IronHuijsen",         text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
-    {username = "KooJagoo",            text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
-    {username = "rstuaj1",             text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
-    {username = "mouri01045",          text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
-    {username = "stevalone7",          text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
-    {username = "ziroadalahpokoknya",  text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
-    {username = "AlbernTheGreat7",     text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
-    {username = "SweetyCoconut3",      text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
-    {username = "neoo290904",          text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
-    {username = "pororo_iki",          text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
-    {username = "syahidhc",            text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
-    {username = "cyaa_floiyrine",      text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
-    {username = "DzyanV2",             text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
-    {username = "ManSpicy",            text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
-    {username = "Oruzukii",            text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
-    {username = "jeyocal",             text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
-    {username = "yellbubb",            text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
-    {username = "Xetan01",             text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
-    {username = "xkillabe",             text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
+    {username = "matchapii04", text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
+    {username = "akbarfbrynn", text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
+    {username = "BLAZEBUBz", text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
+    {username = "LexxSugar7", text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
+    {username = "Dap_Mahatir", text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
+    {username = "Jv4n00X", text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
+    {username = "Hx8shve3", text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
+    {username = "Chinatsu0263", text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
+    {username = "dimasbani_9", text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
+    {username = "IronHuijsen", text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
+    {username = "KooJagoo", text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
+    {username = "rstuaj1", text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
+    {username = "mouri01045", text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
+    {username = "stevalone7", text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
+    {username = "ziroadalahpokoknya", text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
+    {username = "AlbernTheGreat7", text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
+    {username = "SweetyCoconut3", text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
+    {username = "neoo290904", text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
+    {username = "pororo_iki", text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
+    {username = "syahidhc", text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
+    {username = "cyaa_floiyrine", text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
+    {username = "DzyanV2", text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
+    {username = "ManSpicy", text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
+    {username = "Oruzukii", text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
+    {username = "jeyocal", text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
+    {username = "yellbubb", text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
+    {username = "Xetan01", text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
+    {username = "AlfreadR0rw", text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
 }
 
--- ================= INLINE HELPERS =================
-
-local function addCorner(instance, radius)
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, radius or 8)
-    corner.Parent = instance
-    return corner
-end
-
-local function addStroke(instance, color, thickness, transparency)
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = color
-    stroke.Thickness = thickness or 1.5
-    stroke.Transparency = transparency or 0
-    stroke.Parent = instance
-    return stroke
-end
-
-local function doTween(instance, props, duration)
-    local info = TweenInfo.new(duration or 0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
-    TweenService:Create(instance, info, props):Play()
-end
-
--- ================= FIND PLAYER =================
+-- ================= FUNCTIONS =================
 
 local function findTargetPlayer(target)
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player.Name:lower() == target.username:lower() then
-            return player
+    if target.username then
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player.Name:lower() == target.username:lower() then
+                return player
+            end
+        end
+    end
+    if target.userId then
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player.UserId == target.userId then
+                return player
+            end
         end
     end
     return nil
 end
 
--- ================= CREATE MAP PIN =================
--- Tidak ada body highlight sama sekali — hanya icon pin + label di atas kepala
-
+-- Fungsi untuk membuat MAP PIN di atas kepala (untuk player lain)
 local function createMapPin(player, target)
     if not player.Character then return end
     local char = player.Character
     local head = char:FindFirstChild("Head")
     if not head then return end
-
-    -- Hapus lama jika ada
-    local old = char:FindFirstChild("TeamMapPin")
-    if old then old:Destroy() end
-
-    -- BillboardGui
+    
+    -- Hapus pin lama
+    local oldBB = char:FindFirstChild("TeamPin")
+    if oldBB then oldBB:Destroy() end
+    
     local billboard = Instance.new("BillboardGui")
-    billboard.Name = "TeamMapPin"
-    billboard.Size = UDim2.new(0, 80, 0, 80)
-    billboard.StudsOffset = Vector3.new(0, 3.5, 0)
+    billboard.Name = "TeamPin"
+    billboard.Size = UDim2.new(0, 180, 0, 60)
+    billboard.StudsOffset = Vector3.new(0, 2.8, 0)
     billboard.AlwaysOnTop = true
-    billboard.MaxDistance = 2000
-    billboard.LightInfluence = 0
+    billboard.MaxDistance = 3000
     billboard.Parent = char
-
-    -- ── PIN BODY (lingkaran atas) ──────────────────────────────────────────
-    local pinBody = Instance.new("Frame")
-    pinBody.Name = "PinBody"
-    -- Ukuran lingkaran pin
-    pinBody.Size = UDim2.new(0, 36, 0, 36)
-    -- Posisi: tengah horizontal, bagian bawah billboard atas
-    pinBody.Position = UDim2.new(0.5, -18, 0, 0)
-    pinBody.BackgroundColor3 = target.color
-    pinBody.BorderSizePixel = 0
-    pinBody.ZIndex = 2
-    pinBody.Parent = billboard
-    addCorner(pinBody, 100)
-
-    -- Border putih tipis di sekeliling lingkaran
-    addStroke(pinBody, Color3.fromRGB(255, 255, 255), 2, 0)
-
-    -- Dot putih di tengah lingkaran (seperti ikon Google Maps)
-    local dot = Instance.new("Frame")
-    dot.Size = UDim2.new(0, 12, 0, 12)
-    dot.Position = UDim2.new(0.5, -6, 0.5, -6)
-    dot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    dot.BorderSizePixel = 0
-    dot.ZIndex = 3
-    dot.Parent = pinBody
-    addCorner(dot, 100)
-
-    -- ── EKOR PIN (segitiga ke bawah) ──────────────────────────────────────
-    -- Simulasi segitiga dengan Frame dirotasi 45° (diamond)
-    local tail = Instance.new("Frame")
-    tail.Name = "PinTail"
-    tail.Size = UDim2.new(0, 16, 0, 16)
-    tail.Position = UDim2.new(0.5, -8, 0, 26) -- sedikit overlap ke bawah lingkaran
-    tail.BackgroundColor3 = target.color
-    tail.BorderSizePixel = 0
-    tail.Rotation = 45
-    tail.ZIndex = 1 -- di belakang lingkaran
-    tail.Parent = billboard
-
-    -- ── LABEL NAMA/ROLE ───────────────────────────────────────────────────
-    local labelBg = Instance.new("Frame")
-    labelBg.Name = "LabelBg"
-    labelBg.Size = UDim2.new(0, 72, 0, 20)
-    labelBg.Position = UDim2.new(0.5, -36, 0, 44) -- di bawah ekor pin
-    labelBg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    labelBg.BackgroundTransparency = 0.3
-    labelBg.BorderSizePixel = 0
-    labelBg.ZIndex = 4
-    labelBg.Parent = billboard
-    addCorner(labelBg, 6)
-    addStroke(labelBg, target.color, 1.5, 0)
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, -6, 1, 0)
-    label.Position = UDim2.new(0, 3, 0, 0)
-    label.BackgroundTransparency = 1
-    label.Text = target.text
-    label.TextColor3 = target.color
-    label.Font = Enum.Font.GothamBold
-    label.TextSize = 10
-    label.TextXAlignment = Enum.TextXAlignment.Center
-    label.ZIndex = 5
-    label.Parent = labelBg
-
-    -- ── ANIMASI BOUNCE PIN ────────────────────────────────────────────────
+    
+    -- Pin head (lingkaran)
+    local pinHead = Instance.new("Frame", billboard)
+    pinHead.Size = UDim2.new(0, 18, 0, 18)
+    pinHead.Position = UDim2.new(0.5, -9, 0, 8)
+    pinHead.BackgroundColor3 = target.color
+    pinHead.BorderSizePixel = 0
+    corner(pinHead, 100)
+    
+    -- Inner white dot
+    local pinInner = Instance.new("Frame", pinHead)
+    pinInner.Size = UDim2.new(0, 8, 0, 8)
+    pinInner.Position = UDim2.new(0.5, -4, 0.5, -4)
+    pinInner.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    pinInner.BorderSizePixel = 0
+    corner(pinInner, 100)
+    
+    -- Pin point (segitiga bawah)
+    local pinPoint = Instance.new("Frame", billboard)
+    pinPoint.Size = UDim2.new(0, 10, 0, 10)
+    pinPoint.Position = UDim2.new(0.5, -5, 0, 30)
+    pinPoint.BackgroundColor3 = target.color
+    pinPoint.Rotation = 45
+    pinPoint.BorderSizePixel = 0
+    corner(pinPoint, 2)
+    
+    -- Text background
+    local textBg = Instance.new("Frame", billboard)
+    textBg.Size = UDim2.new(0, 130, 0, 22)
+    textBg.Position = UDim2.new(0.5, -65, 0, 40)
+    textBg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    textBg.BackgroundTransparency = 0.2
+    textBg.BorderSizePixel = 0
+    corner(textBg, 10)
+    stroke(textBg, target.color, 2, 0.2)
+    
+    local textLabel = Instance.new("TextLabel", textBg)
+    textLabel.Size = UDim2.new(1, -10, 1, 0)
+    textLabel.Position = UDim2.new(0, 5, 0, 0)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Text = target.text or "TEAM"
+    textLabel.TextColor3 = target.color
+    textLabel.Font = Enum.Font.GothamBlack
+    textLabel.TextSize = 10
+    
+    -- Animasi pin
     task.spawn(function()
-        local up   = UDim2.new(0, -18, 0, -4)   -- naik sedikit
-        local down = UDim2.new(0, -18, 0, 0)     -- posisi normal
+        while billboard.Parent and pinHead.Parent do
+            tween(pinHead, {Size = UDim2.new(0, 20, 0, 20)}, 0.4)
+            tween(pinHead, {Position = UDim2.new(0.5, -10, 0, 7)}, 0.4)
+            task.wait(0.4)
+            tween(pinHead, {Size = UDim2.new(0, 18, 0, 18)}, 0.4)
+            tween(pinHead, {Position = UDim2.new(0.5, -9, 0, 8)}, 0.4)
+            task.wait(0.4)
+        end
+    end)
+end
 
-        while billboard.Parent do
-            doTween(pinBody, {Position = up},   0.5)
-            doTween(tail,    {Position = UDim2.new(0.5, -8, 0, 22)}, 0.5)
+-- ================= SELF INDICATOR (UNTUK DIRI SENDIRI) =================
+local function createSelfIndicator(target)
+    -- Buat ScreenGui untuk diri sendiri (karena BillboardGui tidak terlihat di first person)
+    local selfGui = Instance.new("ScreenGui")
+    selfGui.Name = "SelfTeamIndicator"
+    selfGui.ResetOnSpawn = false
+    selfGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    
+    pcall(function() selfGui.Parent = getGuiParent() end)
+    if not selfGui.Parent then selfGui.Parent = game:GetService("CoreGui") end
+    
+    -- Indicator di tengah atas layar
+    local indicator = Instance.new("Frame", selfGui)
+    indicator.Size = UDim2.new(0, 160, 0, 40)
+    indicator.Position = UDim2.new(0.5, -80, 0, 60)
+    indicator.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    indicator.BackgroundTransparency = 0.3
+    indicator.BorderSizePixel = 0
+    corner(indicator, 12)
+    stroke(indicator, target.color, 2, 0.3)
+    
+    -- Pin icon kecil
+    local pinIcon = Instance.new("Frame", indicator)
+    pinIcon.Size = UDim2.new(0, 16, 0, 16)
+    pinIcon.Position = UDim2.new(0, 10, 0.5, -8)
+    pinIcon.BackgroundColor3 = target.color
+    pinIcon.BorderSizePixel = 0
+    corner(pinIcon, 100)
+    
+    local pinDot = Instance.new("Frame", pinIcon)
+    pinDot.Size = UDim2.new(0, 6, 0, 6)
+    pinDot.Position = UDim2.new(0.5, -3, 0.5, -3)
+    pinDot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    pinDot.BorderSizePixel = 0
+    corner(pinDot, 100)
+    
+    -- Text
+    local selfText = Instance.new("TextLabel", indicator)
+    selfText.Size = UDim2.new(1, -36, 1, 0)
+    selfText.Position = UDim2.new(0, 34, 0, 0)
+    selfText.BackgroundTransparency = 1
+    selfText.Text = target.text or "TEAM"
+    selfText.TextColor3 = target.color
+    selfText.Font = Enum.Font.GothamBlack
+    selfText.TextSize = 12
+    selfText.TextXAlignment = Enum.TextXAlignment.Left
+    
+    -- Animasi pin
+    task.spawn(function()
+        while selfGui.Parent and pinIcon.Parent do
+            tween(pinIcon, {Size = UDim2.new(0, 18, 0, 18)}, 0.5)
             task.wait(0.5)
-            doTween(pinBody, {Position = down},  0.5)
-            doTween(tail,    {Position = UDim2.new(0.5, -8, 0, 26)}, 0.5)
+            tween(pinIcon, {Size = UDim2.new(0, 16, 0, 16)}, 0.5)
             task.wait(0.5)
         end
     end)
-
-    print("[TeamESP] ✓ Map pin created for: " .. player.Name .. " [" .. target.text .. "]")
-end
-
--- ================= CLEANUP NON-TARGETS =================
-
-local function cleanupPlayer(player)
-    if player.Character then
-        local pin = player.Character:FindFirstChild("TeamMapPin")
-        if pin then pin:Destroy() end
-    end
-end
-
-local function isTarget(player)
-    for _, target in ipairs(TARGETS) do
-        local tp = findTargetPlayer(target)
-        if tp == player then return true, target end
-    end
-    return false, nil
 end
 
 -- ================= MAIN LOOP =================
-
 task.spawn(function()
     task.wait(2)
-
-    -- Debug: list players
-    print("================================================")
-    print("[TeamESP] Players in server:")
-    for _, p in ipairs(Players:GetPlayers()) do
-        print("  - " .. p.Name)
+    
+    print("[TeamPin] === DEBUG INFO ===")
+    print("[TeamPin] Local player: " .. LocalPlayer.Name)
+    print("[TeamPin] Players in server: " .. #Players:GetPlayers())
+    
+    -- Cek apakah diri sendiri termasuk target
+    local selfTarget = nil
+    for _, target in ipairs(TARGETS) do
+        if target.username:lower() == LocalPlayer.Name:lower() then
+            selfTarget = target
+            print("[TeamPin] SELF is target: " .. target.text .. " (" .. target.username .. ")")
+            createSelfIndicator(target)
+            break
+        end
     end
-    print("================================================")
-
+    
     while true do
-        task.wait(1.5)
-
-        -- Tambah pin untuk target yang belum punya
+        task.wait(1)
+        
         for _, target in ipairs(TARGETS) do
             local player = findTargetPlayer(target)
-            if player and player.Character then
-                if not player.Character:FindFirstChild("TeamMapPin") then
+            
+            -- Skip diri sendiri (sudah ada self indicator)
+            if player and player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+                local existing = player.Character:FindFirstChild("TeamPin")
+                if not existing then
                     createMapPin(player, target)
+                    print("[TeamPin] Pin created: " .. player.Name)
                 end
             end
         end
-
-        -- Bersihkan pin dari non-target
+        
+        -- Bersihkan non-target
         for _, player in ipairs(Players:GetPlayers()) do
-            if player.Character then
-                local pin = player.Character:FindFirstChild("TeamMapPin")
+            if player ~= LocalPlayer and player.Character then
+                local pin = player.Character:FindFirstChild("TeamPin")
                 if pin then
-                    local found, _ = isTarget(player)
-                    if not found then pin:Destroy() end
+                    local isTarget = false
+                    for _, target in ipairs(TARGETS) do
+                        if target.username:lower() == player.Name:lower() then
+                            isTarget = true; break
+                        end
+                    end
+                    if not isTarget then
+                        pin:Destroy()
+                    end
                 end
             end
         end
     end
 end)
 
--- ================= HANDLE NEW PLAYERS =================
-
+-- Handle new players
 Players.PlayerAdded:Connect(function(player)
+    task.wait(1)
+    
     for _, target in ipairs(TARGETS) do
-        if player.Name:lower() == target.username:lower() then
-            player.CharacterAdded:Connect(function(char)
-                task.wait(0.5)
-                if char:FindFirstChild("Head") then
-                    createMapPin(player, target)
-                end
-            end)
-            -- Jika sudah punya karakter saat join
-            if player.Character then
-                task.wait(1)
+        if target.username:lower() == player.Name:lower() and player ~= LocalPlayer then
+            if player.Character and player.Character:FindFirstChild("Head") then
                 createMapPin(player, target)
             end
-            break
         end
     end
-end)
-
--- CharacterAdded untuk player yang sudah ada di server
-for _, player in ipairs(Players:GetPlayers()) do
-    for _, target in ipairs(TARGETS) do
-        if player.Name:lower() == target.username:lower() then
-            player.CharacterAdded:Connect(function(char)
+    
+    player.CharacterAdded:Connect(function(char)
+        for _, target in ipairs(TARGETS) do
+            if target.username:lower() == player.Name:lower() and player ~= LocalPlayer then
                 task.wait(0.5)
                 if char:FindFirstChild("Head") then
                     createMapPin(player, target)
                 end
-            end)
-            break
+            end
         end
-    end
-end
+    end)
+end)
 
-print("[TeamESP] Ready! Monitoring " .. #TARGETS .. " members dengan Map Pin.")
+print("[TeamPin] Ready! " .. #TARGETS .. " targets monitored.")
 
 -- ================= THEME =================
 local T = {
