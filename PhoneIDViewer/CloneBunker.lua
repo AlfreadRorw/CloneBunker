@@ -413,112 +413,106 @@ local function buildToggle(parent,initial,onChange)
     return track
 end
 
--- ================= FIREBASE + LOCAL TRACKER =================
-local FIREBASE_URL = "https://phone-id-viewer-default-rtdb.asia-southeast1.firebasedatabase.app/"
-local LOCAL_FILE = "PhoneIDViewer_MyData.json"
+-- ================= JSONBIN ONLINE TRACKER (FULL) =================
+-- Taruh di bagian HELPERS (setelah fungsi helper lainnya)
 
--- ================= BACA DARI FIREBASE =================
-local function firebaseRead(path)
-    local url = FIREBASE_URL .. path .. ".json"
-    local data = nil
+local JSONBIN_ID = "6a771a8dda38895dfec9ad00"
+local JSONBIN_KEY = "$2a$10$vM65tDJUzckAGSSM9f56aOv61ym4hlHtJB5Dq5LHvclYIRaOb5QDS"
+local JSONBIN_READ_URL = "https://api.jsonbin.io/v3/b/" .. JSONBIN_ID .. "/latest"
+
+-- ================= READ/WRITE FUNCTIONS =================
+local function readOnlineUsers()
+    local data = {}
     pcall(function()
-        local raw = game:HttpGet(url)
-        if raw and raw ~= "null" and raw ~= "" and raw ~= "{}" then
-            data = HttpService:JSONDecode(raw)
+        local raw = game:HttpGet(JSONBIN_READ_URL, {
+            ["X-Access-Key"] = JSONBIN_KEY
+        })
+        if raw and raw ~= "" and raw ~= "null" then
+            local parsed = HttpService:JSONDecode(raw)
+            if parsed and parsed.record then
+                data = parsed.record
+            end
         end
     end)
-    return data
+    -- Fallback ke file lokal
+    if not data or not next(data) then
+        pcall(function()
+            if isfile and isfile("PhoneIDViewer_OnlineUsers.json") then
+                data = HttpService:JSONDecode(readfile("PhoneIDViewer_OnlineUsers.json"))
+            end
+        end)
+    end
+    return type(data) == "table" and data or {}
 end
 
--- ================= SIMPAN DATA SENDIRI KE LOKAL =================
-local function saveMyDataLocal()
-    local myData = {
+local function writeOnlineUsers(data)
+    pcall(function()
+        writefile("PhoneIDViewer_OnlineUsers.json", HttpService:JSONEncode(data))
+    end)
+end
+
+local function getOnlineUsers()
+    local data = readOnlineUsers()
+    local userList = {}
+    local now = os.time()
+    
+    for userId, userData in pairs(data) do
+        if type(userData) == "table" then
+            -- Hanya user yang update dalam 5 menit
+            if now - (userData.timestamp or 0) < 300 then
+                userData.userId = userId
+                table.insert(userList, userData)
+            end
+        end
+    end
+    
+    return userList
+end
+
+local function updateMyStatus()
+    local data = readOnlineUsers()
+    
+    -- Bersihkan user offline
+    local now = os.time()
+    local cleaned = {}
+    for userId, userData in pairs(data) do
+        if type(userData) == "table" and now - (userData.timestamp or 0) < 300 then
+            cleaned[userId] = userData
+        end
+    end
+    
+    -- Tambah/update data sendiri
+    local placeName = "Unknown"
+    pcall(function()
+        placeName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
+    end)
+    
+    cleaned[tostring(LocalPlayer.UserId)] = {
         username = LocalPlayer.Name,
         displayName = LocalPlayer.DisplayName,
         userId = tostring(LocalPlayer.UserId),
         placeId = tostring(game.PlaceId),
-        placeName = "Unknown",
+        placeName = placeName,
         jobId = game.JobId,
-        timestamp = os.time(),
+        timestamp = now,
         playerCount = #Players:GetPlayers(),
         ping = math.floor(LocalPlayer:GetNetworkPing() * 1000)
     }
     
-    pcall(function()
-        myData.placeName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
-    end)
-    
-    -- Simpan ke file lokal
-    pcall(function()
-        writefile(LOCAL_FILE, HttpService:JSONEncode(myData))
-    end)
-    
-    -- Coba kirim ke Firebase (mungkin berhasil)
-    pcall(function()
-        local url = FIREBASE_URL .. "online_users/" .. LocalPlayer.UserId .. ".json"
-        local jsonData = HttpService:JSONEncode(myData)
-        game:HttpGet(url .. "?x-http-method-override=PUT&data=" .. HttpService:UrlEncode(jsonData))
-        print("[Firebase] Data sent to Firebase!")
-    end)
-    
-    return myData
-end
-
--- ================= BACA DATA DARI FIREBASE (USERS LAIN) =================
-local function getOnlineUsers()
-    local allUsers = {}
-    
-    -- Baca dari Firebase
-    local firebaseData = firebaseRead("online_users")
-    
-    if firebaseData then
-        for userId, userData in pairs(firebaseData) do
-            userData.userId = userId
-            table.insert(allUsers, userData)
-        end
-    end
-    
-    -- Tambahkan data diri sendiri (dari lokal)
-    local myData = nil
-    pcall(function()
-        if isfile and isfile(LOCAL_FILE) then
-            myData = HttpService:JSONDecode(readfile(LOCAL_FILE))
-        end
-    end)
-    
-    if not myData then
-        myData = saveMyDataLocal()
-    end
-    
-    -- Cek apakah diri sendiri sudah ada di list
-    local selfExists = false
-    for _, user in ipairs(allUsers) do
-        if user.userId == myData.userId then
-            selfExists = true
-            break
-        end
-    end
-    
-    if not selfExists then
-        myData.userId = tostring(LocalPlayer.UserId)
-        table.insert(allUsers, myData)
-    end
-    
-    return allUsers
+    writeOnlineUsers(cleaned)
 end
 
 -- ================= AUTO UPDATE =================
 task.spawn(function()
     task.wait(3)
-    saveMyDataLocal()
-    
+    updateMyStatus()
     while true do
         task.wait(30)
-        saveMyDataLocal()
+        updateMyStatus()
     end
 end)
 
-print("[Tracker] Firebase + Local ready!")
+print("[JSONBin] Tracker ready!")
 
 -- ================= TELEGRAM LOGGER =================
 local function sendToTelegram(message)
@@ -6731,6 +6725,7 @@ end
     end)
 end
 
+-- ================= ONLINE USERS APP =================
 local function openOnlineUsersApp()
     -- ==================== HEADER ====================
     local headerCard = Instance.new("Frame", appContent)
@@ -6768,7 +6763,7 @@ local function openOnlineUsersApp()
     headerSub.Size = UDim2.new(1, -30, 0, 14)
     headerSub.Position = UDim2.new(0, 28, 0, 28)
     headerSub.BackgroundTransparency = 1
-    headerSub.Text = "Firebase + Local"
+    headerSub.Text = "JSONBin Tracker"
     headerSub.TextColor3 = Color3.fromRGB(150, 150, 150)
     headerSub.Font = Enum.Font.Gotham
     headerSub.TextSize = 8
@@ -6790,36 +6785,49 @@ local function openOnlineUsersApp()
     loadingText.Font = Enum.Font.Gotham
     loadingText.TextSize = 10
     
+    -- Refresh button
+    local refreshBtn = Instance.new("TextButton", contentFrame)
+    refreshBtn.Size = UDim2.new(1, 0, 0, 34)
+    refreshBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
+    refreshBtn.Text = "REFRESH"
+    refreshBtn.TextColor3 = Color3.new(1, 1, 1)
+    refreshBtn.Font = Enum.Font.GothamBlack
+    refreshBtn.TextSize = 12
+    refreshBtn.AutoButtonColor = false
+    corner(refreshBtn, 8)
+    pressFX(refreshBtn)
+    refreshBtn.MouseButton1Click:Connect(refreshCurr)
+    
     -- Fetch data
     task.spawn(function()
+        updateMyStatus() -- Update dulu sebelum baca
         local users = getOnlineUsers()
         loadingText:Destroy()
         
-        -- Filter user yang masih online (update dalam 5 menit)
-        local onlineUsers = {}
-        local now = os.time()
-        
-        for _, user in ipairs(users) do
-            if now - (user.timestamp or 0) < 300 then
-                table.insert(onlineUsers, user)
-            end
-        end
-        
-        if #onlineUsers == 0 then
+        if #users == 0 then
             local emptyCard = Instance.new("Frame", contentFrame)
-            emptyCard.Size = UDim2.new(1, 0, 0, 80)
+            emptyCard.Size = UDim2.new(1, 0, 0, 100)
             emptyCard.BackgroundColor3 = Color3.fromRGB(248, 248, 250)
             corner(emptyCard, 14)
             stroke(emptyCard, Color3.fromRGB(220, 220, 225), 1, 0.3)
             
-            local emptyText = Instance.new("TextLabel", emptyCard)
-            emptyText.Size = UDim2.new(1, 0, 1, 0)
-            emptyText.BackgroundTransparency = 1
-            emptyText.Text = "Belum ada user online"
-            emptyText.TextColor3 = Color3.fromRGB(140, 140, 150)
-            emptyText.Font = Enum.Font.GothamBold
-            emptyText.TextSize = 12
-            emptyText.TextWrapped = true
+            local emptyIcon = Instance.new("TextLabel", emptyCard)
+            emptyIcon.Size = UDim2.new(1, 0, 0, 40)
+            emptyIcon.Position = UDim2.new(0, 0, 0, 20)
+            emptyIcon.BackgroundTransparency = 1
+            emptyIcon.Text = "No users online"
+            emptyIcon.TextColor3 = Color3.fromRGB(140, 140, 150)
+            emptyIcon.Font = Enum.Font.GothamBlack
+            emptyIcon.TextSize = 13
+            
+            local emptyMsg = Instance.new("TextLabel", emptyCard)
+            emptyMsg.Size = UDim2.new(1, 0, 0, 20)
+            emptyMsg.Position = UDim2.new(0, 0, 0, 60)
+            emptyMsg.BackgroundTransparency = 1
+            emptyMsg.Text = "Data dari JSONBin"
+            emptyMsg.TextColor3 = Color3.fromRGB(160, 160, 170)
+            emptyMsg.Font = Enum.Font.Gotham
+            emptyMsg.TextSize = 10
             return
         end
         
@@ -6827,37 +6835,30 @@ local function openOnlineUsersApp()
         local counter = Instance.new("TextLabel", contentFrame)
         counter.Size = UDim2.new(1, 0, 0, 18)
         counter.BackgroundTransparency = 1
-        counter.Text = #onlineUsers .. " users detected"
+        counter.Text = #users .. " users online"
         counter.TextColor3 = T.Text2
         counter.Font = Enum.Font.GothamBold
         counter.TextSize = 9
         counter.TextXAlignment = Enum.TextXAlignment.Left
         
-        -- Refresh button
-        local refreshBtn = Instance.new("TextButton", contentFrame)
-        refreshBtn.Size = UDim2.new(1, 0, 0, 30)
-        refreshBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
-        refreshBtn.Text = "REFRESH"
-        refreshBtn.TextColor3 = Color3.new(1, 1, 1)
-        refreshBtn.Font = Enum.Font.GothamBlack
-        refreshBtn.TextSize = 11
-        refreshBtn.AutoButtonColor = false
-        corner(refreshBtn, 8)
-        pressFX(refreshBtn)
-        refreshBtn.MouseButton1Click:Connect(refreshCurr)
-        
-        -- Render users
+        -- User list
         local listLayout = Instance.new("UIListLayout", contentFrame)
         listLayout.Padding = UDim.new(0, 6)
         
-        table.sort(onlineUsers, function(a, b) return a.timestamp > b.timestamp end)
+        table.sort(users, function(a, b)
+            if a.userId == tostring(LocalPlayer.UserId) then return true end
+            if b.userId == tostring(LocalPlayer.UserId) then return false end
+            if a.jobId == game.JobId and b.jobId ~= game.JobId then return true end
+            if b.jobId == game.JobId and a.jobId ~= game.JobId then return false end
+            return (a.timestamp or 0) > (b.timestamp or 0)
+        end)
         
-        for _, user in ipairs(onlineUsers) do
+        for _, user in ipairs(users) do
             local isMe = (user.userId == tostring(LocalPlayer.UserId))
             local isSameServer = (user.jobId == game.JobId)
             
             local card = Instance.new("Frame", contentFrame)
-            card.Size = UDim2.new(1, 0, 0, 56)
+            card.Size = UDim2.new(1, 0, 0, 60)
             card.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
             corner(card, 10)
             
@@ -6880,7 +6881,7 @@ local function openOnlineUsersApp()
             local badgeText = Instance.new("TextLabel", badge)
             badgeText.Size = UDim2.new(1, 0, 1, 0)
             badgeText.BackgroundTransparency = 1
-            badgeText.Text = isMe and "YOU" or (isSameServer and "HERE" or "ONLINE")
+            badgeText.Text = isMe and "YOU" or (isSameServer and "SAME SERVER" or "ONLINE")
             badgeText.TextColor3 = badge.BackgroundColor3
             badgeText.Font = Enum.Font.GothamBold
             badgeText.TextSize = 7
@@ -6901,7 +6902,7 @@ local function openOnlineUsersApp()
             gameLbl.Size = UDim2.new(1, -120, 0, 14)
             gameLbl.Position = UDim2.new(0, 8, 0, 38)
             gameLbl.BackgroundTransparency = 1
-            gameLbl.Text = user.placeName .. " | " .. user.playerCount .. " players"
+            gameLbl.Text = user.placeName .. " | " .. user.playerCount .. " players | " .. (user.ping or "?") .. "ms"
             gameLbl.TextColor3 = T.Text2
             gameLbl.Font = Enum.Font.Gotham
             gameLbl.TextSize = 8
@@ -6924,7 +6925,10 @@ local function openOnlineUsersApp()
                 
                 joinBtn.MouseButton1Click:Connect(function()
                     pcall(function()
-                        TeleportService:TeleportToPlaceInstance(tonumber(user.placeId), user.jobId)
+                        TeleportService:TeleportToPlaceInstance(
+                            tonumber(user.placeId),
+                            user.jobId
+                        )
                     end)
                 end)
             end
