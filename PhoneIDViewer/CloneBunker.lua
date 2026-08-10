@@ -7729,12 +7729,11 @@ local function openWhoOnlineApp()
     end)
 end
 
--- ================= MESSAGE SYSTEM (FIXED + MEMBER LIST) =================
--- Taruh setelah WhoOnline App
-
+-- ================= MESSAGE SYSTEM (FINAL FIXED) =================
 local activeMessageNotif = nil
 local MESSAGE_CHECK_INTERVAL = 5
 local openedConversation = nil
+local chatTargetPlayer = nil -- Simpan player target untuk chat
 
 -- ================= MEMBER LIST =================
 local MEMBERS = {
@@ -7768,60 +7767,36 @@ local MEMBERS = {
     {username = "Xetan01", displayName = "Xetan01", role = "Member", color = Color3.fromRGB(80, 150, 255)},
     {username = "beychullo", displayName = "beychullo", role = "Member", color = Color3.fromRGB(80, 150, 255)},
     {username = "Grace_101253", displayName = "Grace_101253", role = "Member", color = Color3.fromRGB(80, 150, 255)},
+    {username = "Kingpembatai", displayName = "Kingpembatai", role = "Member", color = Color3.fromRGB(80, 150, 255)},
 }
 
 -- ================= SEND MESSAGE =================
 function sendMessage(toUserId, text)
     if not text or text:match("^%s*$") then return end
     local msgId = "msg_" .. tostring(os.time()) .. "_" .. tostring(math.random(1000, 9999))
-
     firebaseSet("/messages/" .. tostring(toUserId) .. "/" .. msgId, {
-        from        = LocalPlayer.Name,
-        fromDisplay = LocalPlayer.DisplayName,
-        fromId      = LocalPlayer.UserId,
-        text        = text,
-        timestamp   = os.time(),
-        read        = false
+        from = LocalPlayer.Name, fromDisplay = LocalPlayer.DisplayName,
+        fromId = LocalPlayer.UserId, text = text, timestamp = os.time(), read = false
     })
-
     firebaseSet("/message_notifs/" .. tostring(toUserId), {
-        from        = LocalPlayer.Name,
-        fromDisplay = LocalPlayer.DisplayName,
-        fromId      = LocalPlayer.UserId,
-        text        = text,
-        timestamp   = os.time()
+        from = LocalPlayer.Name, fromDisplay = LocalPlayer.DisplayName,
+        fromId = LocalPlayer.UserId, text = text, timestamp = os.time()
     })
 end
 
--- ================= MESSAGE NOTIFICATION =================
+-- ================= NOTIFIKASI =================
 function showMessageNotif(fromDisplay, fromId, text)
-    if activeMessageNotif then
-        pcall(function() activeMessageNotif:Destroy() end)
-        activeMessageNotif = nil
-    end
-
-    local notifGui = Instance.new("ScreenGui")
+    if activeMessageNotif then pcall(function() activeMessageNotif:Destroy() end) end
+    local notifGui = Instance.new("ScreenGui", game:GetService("CoreGui"))
     notifGui.Name = "MessageNotif"
-    notifGui.ResetOnSpawn = false
-    notifGui.IgnoreGuiInset = true
-    notifGui.DisplayOrder = 9998
-    notifGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
-
-    pcall(function() notifGui.Parent = game:GetService("CoreGui") end)
-    if not notifGui.Parent then notifGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
     activeMessageNotif = notifGui
 
     local pill = Instance.new("Frame", notifGui)
-    pill.Size = UDim2.new(0, 50, 0, 24)
-    pill.Position = UDim2.new(0.5, -25, 0, 8)
+    pill.Size = UDim2.new(0, 280, 0, 28)
+    pill.Position = UDim2.new(0.5, -140, 0, 10)
     pill.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    pill.BorderSizePixel = 0
-    pill.ZIndex = 9999
-    corner(pill, 12)
-    stroke(pill, Color3.fromRGB(40, 40, 45), 1, 0)
-
-    tween(pill, {Size = UDim2.new(0, 280, 0, 28)}, 0.35, Enum.EasingStyle.Quart)
-    task.wait(0.35)
+    corner(pill, 14)
+    stroke(pill, Color3.fromRGB(50, 50, 55), 1, 0)
 
     local nameLbl = Instance.new("TextLabel", pill)
     nameLbl.Size = UDim2.new(1, -16, 0, 14)
@@ -7829,10 +7804,7 @@ function showMessageNotif(fromDisplay, fromId, text)
     nameLbl.BackgroundTransparency = 1
     nameLbl.Text = "💬 " .. fromDisplay
     nameLbl.TextColor3 = Color3.new(1, 1, 1)
-    nameLbl.Font = Enum.Font.GothamBold
-    nameLbl.TextSize = 10
-    nameLbl.TextXAlignment = Enum.TextXAlignment.Left
-    nameLbl.ZIndex = 10000
+    nameLbl.Font = Enum.Font.GothamBold; nameLbl.TextSize = 10
 
     local previewLbl = Instance.new("TextLabel", pill)
     previewLbl.Size = UDim2.new(1, -16, 0, 12)
@@ -7840,125 +7812,19 @@ function showMessageNotif(fromDisplay, fromId, text)
     previewLbl.BackgroundTransparency = 1
     previewLbl.Text = #text > 35 and text:sub(1, 35) .. "..." or text
     previewLbl.TextColor3 = Color3.fromRGB(150, 150, 155)
-    previewLbl.Font = Enum.Font.Gotham
-    previewLbl.TextSize = 9
-    previewLbl.TextXAlignment = Enum.TextXAlignment.Left
-    previewLbl.ZIndex = 10000
+    previewLbl.Font = Enum.Font.Gotham; previewLbl.TextSize = 9
 
     local tapBtn = Instance.new("TextButton", pill)
-    tapBtn.Size = UDim2.new(1, 0, 1, 0)
-    tapBtn.BackgroundTransparency = 1
-    tapBtn.Text = ""
-    tapBtn.ZIndex = 10002
-
-    local expanded = false
+    tapBtn.Size = UDim2.new(1, 0, 1, 0); tapBtn.BackgroundTransparency = 1; tapBtn.Text = ""
     tapBtn.MouseButton1Click:Connect(function()
-        if expanded then return end
-        expanded = true
-        tween(pill, {Size = UDim2.new(0, 280, 0, 90)}, 0.3, Enum.EasingStyle.Back)
-        task.wait(0.3)
-
-        local replyBg = Instance.new("Frame", pill)
-        replyBg.Size = UDim2.new(1, -16, 0, 34)
-        replyBg.Position = UDim2.new(0, 8, 0, 32)
-        replyBg.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
-        replyBg.BorderSizePixel = 0
-        replyBg.ZIndex = 10003
-        corner(replyBg, 10)
-
-        local replyInput = Instance.new("TextBox", replyBg)
-        replyInput.Size = UDim2.new(1, -44, 1, -8)
-        replyInput.Position = UDim2.new(0, 8, 0, 4)
-        replyInput.BackgroundTransparency = 1
-        replyInput.PlaceholderText = "Balas..."
-        replyInput.PlaceholderColor3 = Color3.fromRGB(100, 100, 105)
-        replyInput.Text = ""
-        replyInput.TextColor3 = Color3.new(1, 1, 1)
-        replyInput.Font = Enum.Font.Gotham
-        replyInput.TextSize = 11
-        replyInput.ZIndex = 10004
-        replyInput:CaptureFocus()
-
-        local sendBtn = Instance.new("TextButton", replyBg)
-        sendBtn.Size = UDim2.new(0, 28, 0, 28)
-        sendBtn.Position = UDim2.new(1, -34, 0.5, -14)
-        sendBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        sendBtn.Text = "↑"
-        sendBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
-        sendBtn.Font = Enum.Font.GothamBlack
-        sendBtn.TextSize = 14
-        sendBtn.AutoButtonColor = false
-        sendBtn.ZIndex = 10004
-        corner(sendBtn, 100)
-
-        local actionRow = Instance.new("Frame", pill)
-        actionRow.Size = UDim2.new(1, -16, 0, 20)
-        actionRow.Position = UDim2.new(0, 8, 0, 68)
-        actionRow.BackgroundTransparency = 1
-        actionRow.ZIndex = 10003
-
-        local closeBtn = Instance.new("TextButton", actionRow)
-        closeBtn.Size = UDim2.new(0.48, 0, 1, 0)
-        closeBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-        closeBtn.Text = "Tutup"
-        closeBtn.TextColor3 = Color3.fromRGB(160, 160, 165)
-        closeBtn.Font = Enum.Font.GothamBold
-        closeBtn.TextSize = 8
-        closeBtn.AutoButtonColor = false
-        closeBtn.ZIndex = 10004
-        corner(closeBtn, 5)
-        closeBtn.MouseButton1Click:Connect(function()
-            tween(pill, {Size = UDim2.new(0, 50, 0, 24)}, 0.25)
-            task.wait(0.3)
-            pcall(function() notifGui:Destroy() end)
-            activeMessageNotif = nil
-        end)
-
-        local openBtn = Instance.new("TextButton", actionRow)
-        openBtn.Size = UDim2.new(0.48, 0, 1, 0)
-        openBtn.Position = UDim2.new(0.52, 0, 0, 0)
-        openBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        openBtn.Text = "Buka App"
-        openBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
-        openBtn.Font = Enum.Font.GothamBold
-        openBtn.TextSize = 8
-        openBtn.AutoButtonColor = false
-        openBtn.ZIndex = 10004
-        corner(openBtn, 5)
-        openBtn.MouseButton1Click:Connect(function()
-            tween(pill, {Size = UDim2.new(0, 50, 0, 24)}, 0.25)
-            task.wait(0.3)
-            pcall(function() notifGui:Destroy() end)
-            activeMessageNotif = nil
-            openedConversation = fromId
-            openApp("Messages", openMessageApp)
-        end)
-
-        local function doSend()
-            local txt = replyInput.Text
-            if txt == "" or txt:match("^%s*$") then return end
-            sendBtn.Text = "✓"
-            sendBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 80)
-            pcall(function() sendMessage(fromId, txt) end)
-            task.wait(0.3)
-            tween(pill, {Size = UDim2.new(0, 50, 0, 24)}, 0.25)
-            task.wait(0.3)
-            pcall(function() notifGui:Destroy() end)
-            activeMessageNotif = nil
-            showDynamicNotification("Pesan terkirim!", Color3.fromRGB(0, 200, 80))
-        end
-
-        sendBtn.MouseButton1Click:Connect(doSend)
-        replyInput.FocusLost:Connect(function(enter) if enter then doSend() end end)
+        pcall(function() notifGui:Destroy() end)
+        activeMessageNotif = nil
+        openedConversation = fromId
+        openApp("Messages", openMessageApp)
     end)
-
-    task.delay(6, function()
-        if not expanded and notifGui.Parent then
-            tween(pill, {Size = UDim2.new(0, 50, 0, 24)}, 0.25)
-            task.wait(0.3)
-            pcall(function() notifGui:Destroy() end)
-            activeMessageNotif = nil
-        end
+    task.delay(5, function()
+        pcall(function() notifGui:Destroy() end)
+        activeMessageNotif = nil
     end)
 end
 
@@ -7978,8 +7844,6 @@ end
 
 -- ================= MESSAGE APP =================
 function openMessageApp()
-    print("DEBUG: openMessageApp START")
-
     -- Header
     local headerCard = Instance.new("Frame", appContent)
     headerCard.Size = UDim2.new(1, 0, 0, 46)
@@ -7993,164 +7857,242 @@ function openMessageApp()
     headerTitle.BackgroundTransparency = 1
     headerTitle.Text = "Messages"
     headerTitle.TextColor3 = Color3.new(1, 1, 1)
-    headerTitle.Font = Enum.Font.GothamBlack
-    headerTitle.TextSize = 16
-    headerTitle.TextXAlignment = Enum.TextXAlignment.Left
+    headerTitle.Font = Enum.Font.GothamBlack; headerTitle.TextSize = 16
 
+    -- ==================== CHAT SCREEN (JIKA ADA YANG DIBUKA) ====================
+    if openedConversation then
+        local targetId = openedConversation
+        local targetPlayer = Players:GetPlayerByUserId(targetId)
+        openedConversation = nil -- Reset
+        
+        if not targetPlayer then
+            -- Kembali ke list
+            refreshCurr()
+            showDynamicNotification("Player tidak ditemukan!", Color3.fromRGB(255, 100, 100))
+            return
+        end
+        
+        -- Target info bar
+        local targetBar = Instance.new("Frame", appContent)
+        targetBar.Size = UDim2.new(1, 0, 0, 50)
+        targetBar.BackgroundColor3 = Color3.fromRGB(20, 20, 26)
+        targetBar.LayoutOrder = 1
+        corner(targetBar, 12)
+        
+        -- Avatar (PAKAI USER ID ASLI)
+        local targetAvatar = Instance.new("ImageLabel", targetBar)
+        targetAvatar.Size = UDim2.new(0, 36, 0, 36)
+        targetAvatar.Position = UDim2.new(0, 10, 0.5, -18)
+        targetAvatar.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
+        targetAvatar.Image = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. targetId .. "&width=100&height=100&format=png"
+        corner(targetAvatar, 100)
+        
+        local targetName = Instance.new("TextLabel", targetBar)
+        targetName.Size = UDim2.new(1, -70, 0, 22)
+        targetName.Position = UDim2.new(0, 54, 0, 6)
+        targetName.BackgroundTransparency = 1
+        targetName.Text = targetPlayer.DisplayName
+        targetName.TextColor3 = Color3.new(1, 1, 1)
+        targetName.Font = Enum.Font.GothamBlack; targetName.TextSize = 13
+        targetName.TextXAlignment = Enum.TextXAlignment.Left
+        
+        local targetUser = Instance.new("TextLabel", targetBar)
+        targetUser.Size = UDim2.new(1, -70, 0, 14)
+        targetUser.Position = UDim2.new(0, 54, 0, 28)
+        targetUser.BackgroundTransparency = 1
+        targetUser.Text = "@" .. targetPlayer.Name
+        targetUser.TextColor3 = Color3.fromRGB(120, 120, 125)
+        targetUser.Font = Enum.Font.Gotham; targetUser.TextSize = 9
+        targetUser.TextXAlignment = Enum.TextXAlignment.Left
+        
+        -- Back button
+        local backBtn = Instance.new("TextButton", targetBar)
+        backBtn.Size = UDim2.new(0, 50, 0, 24)
+        backBtn.Position = UDim2.new(1, -58, 0.5, -12)
+        backBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+        backBtn.Text = "Back"
+        backBtn.TextColor3 = Color3.new(1, 1, 1)
+        backBtn.Font = Enum.Font.GothamBold; backBtn.TextSize = 9
+        backBtn.AutoButtonColor = false
+        corner(backBtn, 6)
+        pressFX(backBtn)
+        backBtn.MouseButton1Click:Connect(function()
+            openedConversation = nil
+            refreshCurr()
+        end)
+        
+        -- Chat input area
+        local inputArea = Instance.new("Frame", appContent)
+        inputArea.Size = UDim2.new(1, 0, 0, 48)
+        inputArea.BackgroundColor3 = Color3.fromRGB(20, 20, 26)
+        inputArea.LayoutOrder = 99
+        corner(inputArea, 12)
+        
+        local inputBox = Instance.new("TextBox", inputArea)
+        inputBox.Size = UDim2.new(1, -56, 0, 34)
+        inputBox.Position = UDim2.new(0, 8, 0.5, -17)
+        inputBox.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
+        inputBox.PlaceholderText = "Ketik pesan..."
+        inputBox.PlaceholderColor3 = Color3.fromRGB(100, 100, 105)
+        inputBox.Text = ""
+        inputBox.TextColor3 = Color3.new(1, 1, 1)
+        inputBox.Font = Enum.Font.Gotham; inputBox.TextSize = 11
+        inputBox.TextXAlignment = Enum.TextXAlignment.Left
+        corner(inputBox, 8)
+        
+        local inputPad = Instance.new("UIPadding", inputBox)
+        inputPad.PaddingLeft = UDim.new(0, 10)
+        
+        local sendBtn = Instance.new("TextButton", inputArea)
+        sendBtn.Size = UDim2.new(0, 34, 0, 34)
+        sendBtn.Position = UDim2.new(1, -42, 0.5, -17)
+        sendBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        sendBtn.Text = "↑"
+        sendBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+        sendBtn.Font = Enum.Font.GothamBlack; sendBtn.TextSize = 16
+        sendBtn.AutoButtonColor = false
+        corner(sendBtn, 100)
+        pressFX(sendBtn)
+        
+        local function doSend()
+            local txt = inputBox.Text
+            if txt == "" or txt:match("^%s*$") then return end
+            inputBox.Text = ""
+            pcall(function() sendMessage(targetId, txt) end)
+            sendBtn.Text = "✓"
+            sendBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 80)
+            showDynamicNotification("Terkirim ke " .. targetPlayer.DisplayName .. "!", Color3.fromRGB(0, 200, 80))
+            task.wait(1)
+            sendBtn.Text = "↑"
+            sendBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        end
+        
+        sendBtn.MouseButton1Click:Connect(doSend)
+        inputBox.FocusLost:Connect(function(enter) if enter then doSend() end end)
+        
+        return -- PENTING: Stop di sini, jangan render list
+    end
+
+    -- ==================== MEMBER LIST ====================
     local contentFrame = Instance.new("Frame", appContent)
     contentFrame.Size = UDim2.new(1, 0, 0, 0)
     contentFrame.AutomaticSize = Enum.AutomaticSize.Y
     contentFrame.BackgroundTransparency = 1
     contentFrame.LayoutOrder = 1
 
-    -- Cek online users dari Firebase
-    local onlineData = firebaseGet("/online_players") or {}
-    local onlineUserIds = {}
-    for _, p in pairs(onlineData) do
-        local now = os.time()
-        if p.timestamp and (now - p.timestamp) < 120 then
-            onlineUserIds[tostring(p.userId)] = true
-        end
-    end
-
-    -- Render member list
     local listLayout = Instance.new("UIListLayout", contentFrame)
     listLayout.Padding = UDim.new(0, 4)
-    listLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
-    -- Sort: Developer dulu, lalu online, lalu alphabetical
+    -- Sort: Developer → Online → Alphabetical
     table.sort(MEMBERS, function(a, b)
         if a.role == "Developer" and b.role ~= "Developer" then return true end
         if b.role == "Developer" and a.role ~= "Developer" then return false end
-
-        local aOnline = false
-        local bOnline = false
-        for _, p in pairs(Players:GetPlayers()) do
+        
+        local aOnline = false; local bOnline = false
+        for _, p in ipairs(Players:GetPlayers()) do
             if p.Name:lower() == a.username:lower() then aOnline = true end
             if p.Name:lower() == b.username:lower() then bOnline = true end
         end
-
         if aOnline ~= bOnline then return aOnline end
         return a.username:lower() < b.username:lower()
     end)
 
     for i, member in ipairs(MEMBERS) do
-        -- Cek apakah member ini online di server
-        local isOnlineHere = false
-        for _, p in pairs(Players:GetPlayers()) do
+        local isOnline = false
+        local targetPlayer = nil
+        for _, p in ipairs(Players:GetPlayers()) do
             if p.Name:lower() == member.username:lower() then
-                isOnlineHere = true
-                break
+                isOnline = true; targetPlayer = p; break
             end
         end
-
         local isMe = (LocalPlayer.Name:lower() == member.username:lower())
 
         local card = Instance.new("TextButton", contentFrame)
-        card.Size = UDim2.new(1, 0, 0, 56)
+        card.Size = UDim2.new(1, 0, 0, 52)
         card.BackgroundColor3 = Color3.fromRGB(20, 20, 26)
-        card.AutoButtonColor = false
-        card.Text = ""
+        card.AutoButtonColor = false; card.Text = ""
         card.LayoutOrder = i
         corner(card, 12)
 
-        -- Role accent
         local accent = Instance.new("Frame", card)
-        accent.Size = UDim2.new(0, 3, 1, -12)
-        accent.Position = UDim2.new(0, 6, 0, 6)
+        accent.Size = UDim2.new(0, 3, 1, -10)
+        accent.Position = UDim2.new(0, 5, 0, 5)
         accent.BackgroundColor3 = member.color
         corner(accent, 2)
 
-        -- Avatar
+        -- Avatar (PAKAI USER ID ASLI kalau online)
         local avatar = Instance.new("ImageLabel", card)
-        avatar.Size = UDim2.new(0, 36, 0, 36)
-        avatar.Position = UDim2.new(0, 14, 0.5, -18)
+        avatar.Size = UDim2.new(0, 34, 0, 34)
+        avatar.Position = UDim2.new(0, 12, 0.5, -17)
         avatar.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
-        avatar.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
+        if targetPlayer then
+            avatar.Image = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. targetPlayer.UserId .. "&width=100&height=100&format=png"
+        else
+            avatar.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
+        end
         corner(avatar, 100)
 
         -- Online dot
-        local onlineDot = Instance.new("Frame", card)
-        onlineDot.Size = UDim2.new(0, 10, 0, 10)
-        onlineDot.Position = UDim2.new(0, 40, 0.5, 10)
-        onlineDot.BackgroundColor3 = isOnlineHere and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(120, 120, 120)
-        corner(onlineDot, 100)
-        stroke(onlineDot, Color3.fromRGB(20, 20, 26), 2, 0)
+        local dot = Instance.new("Frame", card)
+        dot.Size = UDim2.new(0, 9, 0, 9)
+        dot.Position = UDim2.new(0, 38, 0.5, 8)
+        dot.BackgroundColor3 = isOnline and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(100, 100, 100)
+        corner(dot, 100)
+        stroke(dot, Color3.fromRGB(20, 20, 26), 2, 0)
 
         -- Name
         local nameLbl = Instance.new("TextLabel", card)
-        nameLbl.Size = UDim2.new(1, -130, 0, 20)
-        nameLbl.Position = UDim2.new(0, 56, 0, 10)
+        nameLbl.Size = UDim2.new(1, -120, 0, 18)
+        nameLbl.Position = UDim2.new(0, 54, 0, 8)
         nameLbl.BackgroundTransparency = 1
         nameLbl.Text = (isMe and "(You) " or "") .. member.displayName
-        nameLbl.TextColor3 = isOnlineHere and Color3.new(1, 1, 1) or Color3.fromRGB(150, 150, 150)
-        nameLbl.Font = Enum.Font.GothamBlack
-        nameLbl.TextSize = 12
+        nameLbl.TextColor3 = isOnline and Color3.new(1, 1, 1) or Color3.fromRGB(140, 140, 140)
+        nameLbl.Font = Enum.Font.GothamBlack; nameLbl.TextSize = 12
         nameLbl.TextXAlignment = Enum.TextXAlignment.Left
 
-        -- Username
-        local userLbl = Instance.new("TextLabel", card)
-        userLbl.Size = UDim2.new(1, -130, 0, 14)
-        userLbl.Position = UDim2.new(0, 56, 0, 30)
-        userLbl.BackgroundTransparency = 1
-        userLbl.Text = "@" .. member.username .. " · " .. member.role
-        userLbl.TextColor3 = isOnlineHere and Color3.fromRGB(120, 120, 130) or Color3.fromRGB(100, 100, 100)
-        userLbl.Font = Enum.Font.Gotham
-        userLbl.TextSize = 8
-        userLbl.TextXAlignment = Enum.TextXAlignment.Left
+        -- Role
+        local roleLbl = Instance.new("TextLabel", card)
+        roleLbl.Size = UDim2.new(1, -120, 0, 14)
+        roleLbl.Position = UDim2.new(0, 54, 0, 26)
+        roleLbl.BackgroundTransparency = 1
+        roleLbl.Text = "@" .. member.username .. " · " .. member.role
+        roleLbl.TextColor3 = isOnline and Color3.fromRGB(100, 100, 110) or Color3.fromRGB(80, 80, 80)
+        roleLbl.Font = Enum.Font.Gotham; roleLbl.TextSize = 8
+        roleLbl.TextXAlignment = Enum.TextXAlignment.Left
 
         -- Status badge
         local badge = Instance.new("Frame", card)
-        badge.Size = UDim2.new(0, 55, 0, 14)
-        badge.Position = UDim2.new(0, 56, 0, 42)
-        badge.BackgroundColor3 = isOnlineHere and Color3.fromRGB(0, 200, 80) or Color3.fromRGB(80, 80, 80)
+        badge.Size = UDim2.new(0, 50, 0, 14)
+        badge.Position = UDim2.new(0, 54, 0, 38)
+        badge.BackgroundColor3 = isOnline and Color3.fromRGB(0, 200, 80) or Color3.fromRGB(70, 70, 70)
         badge.BackgroundTransparency = 0.85
         corner(badge, 7)
-
+        
         local badgeText = Instance.new("TextLabel", badge)
         badgeText.Size = UDim2.new(1, 0, 1, 0)
         badgeText.BackgroundTransparency = 1
-        badgeText.Text = isOnlineHere and "ONLINE" or "OFFLINE"
-        badgeText.TextColor3 = isOnlineHere and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(150, 150, 150)
-        badgeText.Font = Enum.Font.GothamBold
-        badgeText.TextSize = 7
+        badgeText.Text = isOnline and "ONLINE" or "OFFLINE"
+        badgeText.TextColor3 = isOnline and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(140, 140, 140)
+        badgeText.Font = Enum.Font.GothamBold; badgeText.TextSize = 7
 
-        -- Chat button
-        if not isMe then
+        -- Chat button (hanya untuk online & bukan diri sendiri)
+        if isOnline and not isMe and targetPlayer then
             local chatBtn = Instance.new("TextButton", card)
             chatBtn.Size = UDim2.new(0, 50, 0, 24)
             chatBtn.Position = UDim2.new(1, -58, 0.5, -12)
             chatBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
             chatBtn.Text = "Chat"
             chatBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
-            chatBtn.Font = Enum.Font.GothamBlack
-            chatBtn.TextSize = 9
+            chatBtn.Font = Enum.Font.GothamBlack; chatBtn.TextSize = 9
             chatBtn.AutoButtonColor = false
             corner(chatBtn, 6)
             pressFX(chatBtn)
-
             chatBtn.MouseButton1Click:Connect(function()
-                -- Cari User ID dari player yang online
-                local targetPlayer = nil
-                for _, p in pairs(Players:GetPlayers()) do
-                    if p.Name:lower() == member.username:lower() then
-                        targetPlayer = p
-                        break
-                    end
-                end
-
-                if targetPlayer then
-                    openedConversation = targetPlayer.UserId
-                    refreshCurr()
-                    showDynamicNotification("Chat dengan " .. member.displayName, Color3.fromRGB(255, 255, 255))
-                else
-                    showDynamicNotification(member.displayName .. " tidak online di server ini", Color3.fromRGB(200, 100, 100))
-                end
+                openedConversation = targetPlayer.UserId
+                refreshCurr()
             end)
         end
     end
-
-    print("DEBUG: openMessageApp END, rendered " .. #MEMBERS .. " members")
 end
 
 -- ================= JALANKAN =================
