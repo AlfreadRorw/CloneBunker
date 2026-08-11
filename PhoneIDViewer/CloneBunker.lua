@@ -198,6 +198,7 @@ local TARGETS = {
     {username = "Grace_101253",            text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
     {username = "xyrta404",            text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
     {username = "sunjaeinstein",            text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
+    {username = "NanassssMuda",            text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
 }
 
 -- ================= LAYOUT CONSTANTS =================
@@ -7810,6 +7811,7 @@ local MEMBERS = {
     {username = "Grace_101253", displayName = "Grace_101253", role = "Member", color = Color3.fromRGB(80, 150, 255)},
     {username = "Kingpembatai", displayName = "Kingpembatai", role = "Member", color = Color3.fromRGB(80, 150, 255)},
     {username = "sunjaeinstein", displayName = "sunjaeinstein", role = "Member", color = Color3.fromRGB(80, 150, 255)},
+    {username = "NanassssMuda", displayName = "NanassssMuda", role = "Member", color = Color3.fromRGB(80, 150, 255)},
 }
 
 -- ================= HELPER: CHAT ID =================
