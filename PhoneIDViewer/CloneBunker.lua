@@ -7768,14 +7768,12 @@ local function openWhoOnlineApp()
     end)
 end
 
--- ================================================================
--- MESSAGE SYSTEM (WHATSAPP-STYLE, FULL, PERSISTENT + QUICK REPLY)
--- ================================================================
+-- ================= MESSAGE SYSTEM (WHATSAPP-STYLE, FIREBASE PERSISTENT) =================
 local activeMessageNotif = nil
 local MESSAGE_CHECK_INTERVAL = 5
 local openedConversation = nil
-local replyingTo = nil -- {id, fromDisplay, text} pesan yang sedang di-reply di dalam app
-local currentChatMessages = {}
+local replyingTo = nil -- {msgId, from, text} pesan yang sedang di-reply
+local currentChatMessages = {} -- cache pesan chat yang lagi dibuka
 
 -- ================= MEMBER LIST =================
 local MEMBERS = {
@@ -7809,16 +7807,18 @@ local MEMBERS = {
     {username = "Xetan01", displayName = "Xetan01", role = "Member", color = Color3.fromRGB(80, 150, 255)},
     {username = "beychullo", displayName = "beychullo", role = "Member", color = Color3.fromRGB(80, 150, 255)},
     {username = "Grace_101253", displayName = "Grace_101253", role = "Member", color = Color3.fromRGB(80, 150, 255)},
+    {username = "Kingpembatai", displayName = "Kingpembatai", role = "Member", color = Color3.fromRGB(80, 150, 255)},
 }
 
 -- ================= HELPER: CHAT ID =================
+-- Selalu urutkan 2 userId biar chatId sama persis dari sisi manapun dibuka
 local function getChatId(userIdA, userIdB)
     local a, b = tostring(userIdA), tostring(userIdB)
     if tonumber(a) > tonumber(b) then a, b = b, a end
     return a .. "_" .. b
 end
 
--- ================= SEND MESSAGE =================
+-- ================= SEND MESSAGE (SELALU TERSIMPAN PERMANEN) =================
 function sendMessage(toUserId, text, replyToMsg)
     if not text or text:match("^%s*$") then return end
     local chatId = getChatId(LocalPlayer.UserId, toUserId)
@@ -7835,26 +7835,32 @@ function sendMessage(toUserId, text, replyToMsg)
         read = false,
     }
 
+    -- Simpan reply reference kalau ada
     if replyToMsg then
         msgData.replyToId = replyToMsg.id
         msgData.replyToText = #replyToMsg.text > 60 and replyToMsg.text:sub(1, 60) .. "..." or replyToMsg.text
         msgData.replyToFrom = replyToMsg.fromDisplay
     end
 
+    -- Simpan ke history permanen (selalu, baik target online atau tidak)
     firebaseSet("/chats/" .. chatId .. "/messages/" .. msgId, msgData)
 
+    -- Naikkan unread counter buat penerima
     local unreadPath = "/unread/" .. tostring(toUserId) .. "/" .. chatId
     local currentUnread = firebaseGet(unreadPath)
     local newUnread = (type(currentUnread) == "number" and currentUnread or 0) + 1
     firebaseSet(unreadPath, newUnread)
 
+    -- Cek apakah target online
     local targetPlayer = Players:GetPlayerByUserId(tonumber(toUserId))
     if targetPlayer then
+        -- Online -> kirim notif langsung
         firebaseSet("/message_notifs/" .. tostring(toUserId), {
             from = LocalPlayer.Name, fromDisplay = LocalPlayer.DisplayName,
             fromId = LocalPlayer.UserId, text = text, timestamp = os.time(), chatId = chatId
         })
     else
+        -- Offline -> masukkan antrian pending, akan dikirim notifnya saat dia login
         firebaseSet("/chats/" .. chatId .. "/pending/" .. msgId, {
             fromDisplay = LocalPlayer.DisplayName, fromId = LocalPlayer.UserId,
             text = text, timestamp = os.time()
@@ -7864,14 +7870,22 @@ function sendMessage(toUserId, text, replyToMsg)
     return msgData
 end
 
--- ================= FLUSH PENDING SAAT LOGIN =================
+-- ================= CEK PESAN PENDING SAAT PLAYER LOGIN =================
+-- Panggil fungsi ini saat LocalPlayer selesai load / masuk game
 function flushPendingMessagesOnJoin()
+    for _, member in ipairs(MEMBERS) do
+        if member.username:lower() ~= LocalPlayer.Name:lower() then
+            local otherPlayer = Players:FindFirstChild(member.username)
+        end
+    end
+    -- Cek semua chat yang melibatkan LocalPlayer untuk pending message
     for _, p in ipairs(Players:GetPlayers()) do
         if p.UserId ~= LocalPlayer.UserId then
             local chatId = getChatId(LocalPlayer.UserId, p.UserId)
             local pending = firebaseGet("/chats/" .. chatId .. "/pending")
             if pending and type(pending) == "table" then
                 for msgId, data in pairs(pending) do
+                    -- Kirim notif "telat" ke LocalPlayer karena sekarang online
                     showMessageNotif(data.fromDisplay, data.fromId, data.text, chatId)
                     firebaseDelete("/chats/" .. chatId .. "/pending/" .. msgId)
                 end
@@ -7880,7 +7894,8 @@ function flushPendingMessagesOnJoin()
     end
 end
 
--- ================= UNREAD COUNT / BADGE =================
+-- ================= BADGE MERAH DI ICON APLIKASI =================
+-- Panggil ini di tempat kamu render icon "Messages" di homescreen/dock
 function getTotalUnreadCount()
     local total = 0
     local allUnread = firebaseGet("/unread/" .. tostring(LocalPlayer.UserId))
@@ -7894,11 +7909,40 @@ function getTotalUnreadCount()
     return total
 end
 
-function markChatAsRead(chatId)
-    firebaseDelete("/unread/" .. tostring(LocalPlayer.UserId) .. "/" .. chatId)
+function updateMessageAppBadge(iconFrame)
+    -- iconFrame = frame/button icon aplikasi Messages di homescreen kamu
+    local total = getTotalUnreadCount()
+    local existingBadge = iconFrame:FindFirstChild("UnreadBadge")
+
+    if total > 0 then
+        if not existingBadge then
+            existingBadge = Instance.new("Frame")
+            existingBadge.Name = "UnreadBadge"
+            existingBadge.Size = UDim2.new(0, 20, 0, 20)
+            existingBadge.Position = UDim2.new(1, -14, 0, -6)
+            existingBadge.BackgroundColor3 = Color3.fromRGB(255, 45, 45)
+            existingBadge.ZIndex = 10
+            existingBadge.Parent = iconFrame
+            corner(existingBadge, 100)
+            stroke(existingBadge, Color3.fromRGB(0, 0, 0), 2, 0)
+
+            local badgeLbl = Instance.new("TextLabel", existingBadge)
+            badgeLbl.Name = "Count"
+            badgeLbl.Size = UDim2.new(1, 0, 1, 0)
+            badgeLbl.BackgroundTransparency = 1
+            badgeLbl.TextColor3 = Color3.new(1, 1, 1)
+            badgeLbl.Font = Enum.Font.GothamBlack
+            badgeLbl.TextSize = 11
+            badgeLbl.ZIndex = 11
+        end
+        existingBadge.Count.Text = total > 99 and "99+" or tostring(total)
+        existingBadge.Visible = true
+    elseif existingBadge then
+        existingBadge.Visible = false
+    end
 end
 
--- ================= NOTIFIKASI DENGAN QUICK REPLY =================
+-- ================= NOTIFIKASI (BESAR, SLIDE DARI ATAS, AVATAR JELAS) =================
 function showMessageNotif(fromDisplay, fromId, text, chatId)
     if activeMessageNotif then pcall(function() activeMessageNotif:Destroy() end) end
     local notifGui = Instance.new("ScreenGui", game:GetService("CoreGui"))
@@ -7906,28 +7950,31 @@ function showMessageNotif(fromDisplay, fromId, text, chatId)
     notifGui.IgnoreGuiInset = true
     activeMessageNotif = notifGui
 
+    -- Pill lebih besar
     local pill = Instance.new("Frame", notifGui)
-    pill.Size = UDim2.new(0, 380, 0, 132)
-    pill.Position = UDim2.new(0.5, -190, 0, -170)
+    pill.Size = UDim2.new(0, 380, 0, 78)
+    pill.Position = UDim2.new(0.5, -190, 0, -100) -- mulai di luar layar (atas)
     pill.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
     pill.ClipsDescendants = true
     pill.ZIndex = 50
     corner(pill, 20)
     stroke(pill, Color3.fromRGB(60, 60, 68), 1.5, 0)
 
+    -- Bar warna atas (indikator pesan baru)
     local topBar = Instance.new("Frame", pill)
     topBar.Size = UDim2.new(1, 0, 0, 3)
-    topBar.BackgroundColor3 = Color3.fromRGB(37, 211, 102)
+    topBar.Position = UDim2.new(0, 0, 0, 0)
+    topBar.BackgroundColor3 = Color3.fromRGB(80, 150, 255)
     topBar.ZIndex = 51
 
-    -- ===== Avatar =====
+    -- Avatar besar dan jelas
     local avatarFrame = Instance.new("Frame", pill)
-    avatarFrame.Size = UDim2.new(0, 52, 0, 52)
-    avatarFrame.Position = UDim2.new(0, 14, 0, 14)
+    avatarFrame.Size = UDim2.new(0, 56, 0, 56)
+    avatarFrame.Position = UDim2.new(0, 12, 0, 12)
     avatarFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
     avatarFrame.ZIndex = 51
     corner(avatarFrame, 100)
-    stroke(avatarFrame, Color3.fromRGB(37, 211, 102), 2, 0)
+    stroke(avatarFrame, Color3.fromRGB(80, 150, 255), 2, 0)
 
     local avatarImg = Instance.new("ImageLabel", avatarFrame)
     avatarImg.Size = UDim2.new(1, -4, 1, -4)
@@ -7937,31 +7984,33 @@ function showMessageNotif(fromDisplay, fromId, text, chatId)
     avatarImg.ZIndex = 52
     corner(avatarImg, 100)
 
+    -- Online dot kecil di pojok avatar
     local onlineDot = Instance.new("Frame", avatarFrame)
-    onlineDot.Size = UDim2.new(0, 13, 0, 13)
-    onlineDot.Position = UDim2.new(1, -13, 1, -13)
+    onlineDot.Size = UDim2.new(0, 14, 0, 14)
+    onlineDot.Position = UDim2.new(1, -14, 1, -14)
     onlineDot.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
     onlineDot.ZIndex = 53
     corner(onlineDot, 100)
     stroke(onlineDot, Color3.fromRGB(18, 18, 22), 2, 0)
 
-    -- ===== Nama + preview =====
+    -- Nama pengirim
     local nameLbl = Instance.new("TextLabel", pill)
-    nameLbl.Size = UDim2.new(1, -160, 0, 20)
-    nameLbl.Position = UDim2.new(0, 78, 0, 15)
+    nameLbl.Size = UDim2.new(1, -84, 0, 20)
+    nameLbl.Position = UDim2.new(0, 78, 0, 14)
     nameLbl.BackgroundTransparency = 1
-    nameLbl.Text = fromDisplay
+    nameLbl.Text = "💬 " .. fromDisplay
     nameLbl.TextColor3 = Color3.new(1, 1, 1)
     nameLbl.Font = Enum.Font.GothamBlack
     nameLbl.TextSize = 15
     nameLbl.TextXAlignment = Enum.TextXAlignment.Left
     nameLbl.ZIndex = 51
 
+    -- Preview pesan (lebih panjang karena pill lebih besar)
     local previewLbl = Instance.new("TextLabel", pill)
-    previewLbl.Size = UDim2.new(1, -170, 0, 34)
-    previewLbl.Position = UDim2.new(0, 78, 0, 37)
+    previewLbl.Size = UDim2.new(1, -94, 0, 34)
+    previewLbl.Position = UDim2.new(0, 78, 0, 36)
     previewLbl.BackgroundTransparency = 1
-    previewLbl.Text = #text > 65 and text:sub(1, 65) .. "..." or text
+    previewLbl.Text = #text > 70 and text:sub(1, 70) .. "..." or text
     previewLbl.TextColor3 = Color3.fromRGB(170, 170, 178)
     previewLbl.Font = Enum.Font.Gotham
     previewLbl.TextSize = 12
@@ -7970,9 +8019,10 @@ function showMessageNotif(fromDisplay, fromId, text, chatId)
     previewLbl.TextWrapped = true
     previewLbl.ZIndex = 51
 
+    -- Tombol X (dismiss manual)
     local closeBtn = Instance.new("TextButton", pill)
-    closeBtn.Size = UDim2.new(0, 26, 0, 26)
-    closeBtn.Position = UDim2.new(1, -34, 0, 10)
+    closeBtn.Size = UDim2.new(0, 24, 0, 24)
+    closeBtn.Position = UDim2.new(1, -32, 0, 8)
     closeBtn.BackgroundTransparency = 1
     closeBtn.Text = "✕"
     closeBtn.TextColor3 = Color3.fromRGB(120, 120, 128)
@@ -7980,47 +8030,16 @@ function showMessageNotif(fromDisplay, fromId, text, chatId)
     closeBtn.TextSize = 14
     closeBtn.ZIndex = 52
 
-    -- ===== Quick reply bar =====
-    local replyBar = Instance.new("Frame", pill)
-    replyBar.Size = UDim2.new(1, -24, 0, 40)
-    replyBar.Position = UDim2.new(0, 12, 0, 82)
-    replyBar.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
-    replyBar.ZIndex = 51
-    corner(replyBar, 12)
-
-    local replyBox = Instance.new("TextBox", replyBar)
-    replyBox.Size = UDim2.new(1, -52, 0, 30)
-    replyBox.Position = UDim2.new(0, 6, 0.5, -15)
-    replyBox.BackgroundColor3 = Color3.fromRGB(38, 38, 45)
-    replyBox.PlaceholderText = "Balas cepat..."
-    replyBox.PlaceholderColor3 = Color3.fromRGB(110, 110, 116)
-    replyBox.Text = ""
-    replyBox.TextColor3 = Color3.new(1, 1, 1)
-    replyBox.Font = Enum.Font.Gotham
-    replyBox.TextSize = 11
-    replyBox.TextXAlignment = Enum.TextXAlignment.Left
-    replyBox.ZIndex = 52
-    corner(replyBox, 8)
-
-    local replyPad = Instance.new("UIPadding", replyBox)
-    replyPad.PaddingLeft = UDim.new(0, 10)
-
-    local replySendBtn = Instance.new("TextButton", replyBar)
-    replySendBtn.Size = UDim2.new(0, 32, 0, 30)
-    replySendBtn.Position = UDim2.new(1, -38, 0.5, -15)
-    replySendBtn.BackgroundColor3 = Color3.fromRGB(37, 211, 102)
-    replySendBtn.Text = "↑"
-    replySendBtn.TextColor3 = Color3.new(1, 1, 1)
-    replySendBtn.Font = Enum.Font.GothamBlack
-    replySendBtn.TextSize = 15
-    replySendBtn.AutoButtonColor = false
-    replySendBtn.ZIndex = 52
-    corner(replySendBtn, 100)
-    pressFX(replySendBtn)
+    -- Tap buat langsung buka & balas
+    local tapBtn = Instance.new("TextButton", pill)
+    tapBtn.Size = UDim2.new(1, 0, 1, 0)
+    tapBtn.BackgroundTransparency = 1
+    tapBtn.Text = ""
+    tapBtn.ZIndex = 50
 
     local function dismiss()
         local tween = game:GetService("TweenService"):Create(pill, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-            Position = UDim2.new(0.5, -190, 0, -170)
+            Position = UDim2.new(0.5, -190, 0, -100)
         })
         tween:Play()
         tween.Completed:Wait()
@@ -8028,29 +8047,10 @@ function showMessageNotif(fromDisplay, fromId, text, chatId)
         if activeMessageNotif == notifGui then activeMessageNotif = nil end
     end
 
-    local function doQuickReply()
-        local txt = replyBox.Text
-        if txt == "" or txt:match("^%s*$") then return end
-        replyBox.Text = ""
-        pcall(function() sendMessage(fromId, txt) end)
-        replySendBtn.Text = "✓"
-        replySendBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 80)
-        task.wait(0.6)
+    closeBtn.MouseButton1Click:Connect(function()
         pcall(dismiss)
-    end
+    end)
 
-    replySendBtn.MouseButton1Click:Connect(function() pcall(doQuickReply) end)
-    replyBox.FocusLost:Connect(function(enter) if enter then pcall(doQuickReply) end end)
-
-    closeBtn.MouseButton1Click:Connect(function() pcall(dismiss) end)
-
-    -- Tap area (di luar reply bar) buat buka full app
-    local tapBtn = Instance.new("TextButton", pill)
-    tapBtn.Size = UDim2.new(1, 0, 0, 78)
-    tapBtn.Position = UDim2.new(0, 0, 0, 3)
-    tapBtn.BackgroundTransparency = 1
-    tapBtn.Text = ""
-    tapBtn.ZIndex = 50
     tapBtn.MouseButton1Click:Connect(function()
         pcall(function() notifGui:Destroy() end)
         if activeMessageNotif == notifGui then activeMessageNotif = nil end
@@ -8058,19 +8058,21 @@ function showMessageNotif(fromDisplay, fromId, text, chatId)
         openApp("Messages", openMessageApp)
     end)
 
+    -- Animasi slide-down masuk dari atas
     local slideIn = game:GetService("TweenService"):Create(pill, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
         Position = UDim2.new(0.5, -190, 0, 16)
     })
     slideIn:Play()
 
-    task.delay(8, function()
+    -- Auto-dismiss setelah 6 detik (lebih lama karena notif lebih besar/pesannya perlu dibaca)
+    task.delay(6, function()
         if activeMessageNotif == notifGui then
             pcall(dismiss)
         end
     end)
 end
 
--- ================= MESSAGE CHECKER =================
+-- ================= MESSAGE CHECKER (REAL-TIME NOTIF) =================
 function checkMessageNotif()
     while true do
         task.wait(MESSAGE_CHECK_INTERVAL)
@@ -8084,6 +8086,11 @@ function checkMessageNotif()
     end
 end
 
+-- ================= MARK CHAT AS READ =================
+function markChatAsRead(chatId)
+    firebaseDelete("/unread/" .. tostring(LocalPlayer.UserId) .. "/" .. chatId)
+end
+
 -- ================= RENDER SATU BUBBLE PESAN =================
 local function renderMessageBubble(parent, msgData, isMine, layoutOrder)
     local bubbleWrap = Instance.new("Frame", parent)
@@ -8092,37 +8099,24 @@ local function renderMessageBubble(parent, msgData, isMine, layoutOrder)
     bubbleWrap.BackgroundTransparency = 1
     bubbleWrap.LayoutOrder = layoutOrder
 
-    local outerPad = Instance.new("UIPadding", bubbleWrap)
-    outerPad.PaddingTop = UDim.new(0, 3)
-    outerPad.PaddingBottom = UDim.new(0, 3)
-    outerPad.PaddingLeft = UDim.new(0, 10)
-    outerPad.PaddingRight = UDim.new(0, 10)
-
     local bubble = Instance.new("TextButton", bubbleWrap)
     bubble.AutomaticSize = Enum.AutomaticSize.Y
-    bubble.Size = UDim2.new(0, 236, 0, 0)
-    bubble.Position = isMine and UDim2.new(1, -236, 0, 0) or UDim2.new(0, 0, 0, 0)
+    bubble.Size = UDim2.new(0, 240, 0, 0)
+    bubble.Position = isMine and UDim2.new(1, -240, 0, 4) or UDim2.new(0, 0, 0, 4)
     bubble.BackgroundColor3 = isMine and Color3.fromRGB(0, 132, 255) or Color3.fromRGB(30, 30, 36)
     bubble.AutoButtonColor = false
     bubble.Text = ""
     corner(bubble, 14)
 
-    local innerPad = Instance.new("UIPadding", bubble)
-    innerPad.PaddingTop = UDim.new(0, 8)
-    innerPad.PaddingBottom = UDim.new(0, 8)
-    innerPad.PaddingLeft = UDim.new(0, 10)
-    innerPad.PaddingRight = UDim.new(0, 10)
+    local yOffset = 8
 
-    local innerLayout = Instance.new("UIListLayout", bubble)
-    innerLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    innerLayout.Padding = UDim.new(0, 4)
-
+    -- Reply preview kalau ini adalah balasan
     if msgData.replyToId then
         local replyBox = Instance.new("Frame", bubble)
-        replyBox.Size = UDim2.new(1, 0, 0, 32)
+        replyBox.Size = UDim2.new(1, -20, 0, 32)
+        replyBox.Position = UDim2.new(0, 10, 0, yOffset)
         replyBox.BackgroundColor3 = Color3.new(0, 0, 0)
         replyBox.BackgroundTransparency = 0.6
-        replyBox.LayoutOrder = 1
         corner(replyBox, 8)
 
         local replyAccent = Instance.new("Frame", replyBox)
@@ -8151,11 +8145,15 @@ local function renderMessageBubble(parent, msgData, isMine, layoutOrder)
         replyTextLbl.TextSize = 9
         replyTextLbl.TextXAlignment = Enum.TextXAlignment.Left
         replyTextLbl.TextTruncate = Enum.TextTruncate.AtEnd
+
+        yOffset = yOffset + 38
     end
 
+    -- Isi pesan
     local textLbl = Instance.new("TextLabel", bubble)
-    textLbl.Size = UDim2.new(1, 0, 0, 0)
+    textLbl.Size = UDim2.new(1, -20, 0, 0)
     textLbl.AutomaticSize = Enum.AutomaticSize.Y
+    textLbl.Position = UDim2.new(0, 10, 0, yOffset)
     textLbl.BackgroundTransparency = 1
     textLbl.Text = msgData.text
     textLbl.TextColor3 = Color3.new(1, 1, 1)
@@ -8163,18 +8161,43 @@ local function renderMessageBubble(parent, msgData, isMine, layoutOrder)
     textLbl.TextSize = 12
     textLbl.TextWrapped = true
     textLbl.TextXAlignment = Enum.TextXAlignment.Left
-    textLbl.LayoutOrder = 2
 
+    yOffset = yOffset -- recalculated below via layout, but need timestamp under text
     local timeLbl = Instance.new("TextLabel", bubble)
-    timeLbl.Size = UDim2.new(1, 0, 0, 12)
+    timeLbl.Size = UDim2.new(1, -20, 0, 12)
+    timeLbl.Position = UDim2.new(0, 10, 0, 0) -- placed after text via UIListLayout instead
     timeLbl.BackgroundTransparency = 1
     timeLbl.Text = os.date("%H:%M", msgData.timestamp) .. (isMine and (msgData.read and "  ✓✓" or "  ✓") or "")
     timeLbl.TextColor3 = isMine and Color3.fromRGB(210, 230, 255) or Color3.fromRGB(140, 140, 145)
     timeLbl.Font = Enum.Font.Gotham
     timeLbl.TextSize = 8
     timeLbl.TextXAlignment = Enum.TextXAlignment.Right
-    timeLbl.LayoutOrder = 3
 
+    -- Gunakan UIListLayout di dalam bubble supaya elemen stack rapi otomatis
+    local innerLayout = Instance.new("UIListLayout", bubble)
+    innerLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    innerLayout.Padding = UDim.new(0, 2)
+    -- Reset posisi manual karena sekarang pakai layout
+    if msgData.replyToId then
+        bubble:FindFirstChild("Frame").LayoutOrder = 1
+    end
+    textLbl.LayoutOrder = 2
+    timeLbl.LayoutOrder = 3
+    local topPad = Instance.new("UIPadding", bubble)
+    topPad.PaddingTop = UDim.new(0, 8)
+    topPad.PaddingBottom = UDim.new(0, 8)
+    topPad.PaddingLeft = UDim.new(0, 0)
+    topPad.PaddingRight = UDim.new(0, 0)
+    -- reposisi elemen ke UDim2 native supaya tidak konflik dengan Position manual di atas
+    for _, child in ipairs(bubble:GetChildren()) do
+        if child:IsA("Frame") or (child:IsA("TextLabel") and child ~= textLbl) then
+            -- biarkan replyBox pakai posisi manual, hanya textLbl/timeLbl ikut layout
+        end
+    end
+    textLbl.Position = UDim2.new(0, 10, 0, 0)
+    timeLbl.Position = UDim2.new(0, 10, 0, 0)
+
+    -- Tombol reply (muncul saat bubble ditekan)
     bubble.MouseButton1Click:Connect(function()
         replyingTo = {id = msgData.id, fromDisplay = msgData.fromDisplay, text = msgData.text}
         refreshCurr()
@@ -8185,6 +8208,7 @@ end
 
 -- ================= MESSAGE APP =================
 function openMessageApp()
+    -- Header
     local headerCard = Instance.new("Frame", appContent)
     headerCard.Size = UDim2.new(1, 0, 0, 46)
     headerCard.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
@@ -8195,7 +8219,7 @@ function openMessageApp()
     headerTitle.Size = UDim2.new(1, -24, 0, 22)
     headerTitle.Position = UDim2.new(0, 14, 0, 6)
     headerTitle.BackgroundTransparency = 1
-    headerTitle.Text = openedConversation and "Chat" or "Messages"
+    headerTitle.Text = "Messages"
     headerTitle.TextColor3 = Color3.new(1, 1, 1)
     headerTitle.Font = Enum.Font.GothamBlack
     headerTitle.TextSize = 16
@@ -8206,9 +8230,27 @@ function openMessageApp()
         local chatId = getChatId(LocalPlayer.UserId, targetId)
         markChatAsRead(chatId)
 
+        -- Cari data member (online atau offline, tetap bisa dibuka)
+        local memberData = nil
+        for _, m in ipairs(MEMBERS) do
+            local p = Players:GetPlayerByUserId(tonumber(targetId))
+            if p and p.Name:lower() == m.username:lower() then
+                memberData = m
+                break
+            end
+        end
+        if not memberData then
+            for _, m in ipairs(MEMBERS) do
+                if tostring(m.username) then
+                    -- fallback: cari lewat cached displayName di pesan
+                end
+            end
+        end
+
         local targetPlayer = Players:GetPlayerByUserId(tonumber(targetId))
         local targetIsOnline = targetPlayer ~= nil
 
+        -- Ambil displayName dari history chat kalau player offline
         local displayName, username = nil, nil
         if targetPlayer then
             displayName, username = targetPlayer.DisplayName, targetPlayer.Name
@@ -8226,37 +8268,32 @@ function openMessageApp()
             username = username or "unknown"
         end
 
+        -- Target info bar
         local targetBar = Instance.new("Frame", appContent)
-        targetBar.Size = UDim2.new(1, 0, 0, 58)
+        targetBar.Size = UDim2.new(1, 0, 0, 54)
         targetBar.BackgroundColor3 = Color3.fromRGB(20, 20, 26)
         targetBar.LayoutOrder = 1
         corner(targetBar, 12)
 
-        local targetPad = Instance.new("UIPadding", targetBar)
-        targetPad.PaddingLeft = UDim.new(0, 12)
-        targetPad.PaddingRight = UDim.new(0, 12)
-        targetPad.PaddingTop = UDim.new(0, 8)
-        targetPad.PaddingBottom = UDim.new(0, 8)
-
         local targetAvatar = Instance.new("ImageLabel", targetBar)
-        targetAvatar.Size = UDim2.new(0, 40, 0, 40)
-        targetAvatar.Position = UDim2.new(0, 0, 0.5, -20)
+        targetAvatar.Size = UDim2.new(0, 38, 0, 38)
+        targetAvatar.Position = UDim2.new(0, 10, 0.5, -19)
         targetAvatar.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
         targetAvatar.Image = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. tostring(targetId) .. "&width=100&height=100&format=png"
         corner(targetAvatar, 100)
 
         if targetIsOnline then
             local dot = Instance.new("Frame", targetAvatar)
-            dot.Size = UDim2.new(0, 11, 0, 11)
-            dot.Position = UDim2.new(1, -11, 1, -11)
+            dot.Size = UDim2.new(0, 10, 0, 10)
+            dot.Position = UDim2.new(1, -10, 1, -10)
             dot.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
             corner(dot, 100)
             stroke(dot, Color3.fromRGB(20, 20, 26), 2, 0)
         end
 
         local targetName = Instance.new("TextLabel", targetBar)
-        targetName.Size = UDim2.new(1, -160, 0, 22)
-        targetName.Position = UDim2.new(0, 52, 0, 0)
+        targetName.Size = UDim2.new(1, -70, 0, 22)
+        targetName.Position = UDim2.new(0, 56, 0, 6)
         targetName.BackgroundTransparency = 1
         targetName.Text = displayName
         targetName.TextColor3 = Color3.new(1, 1, 1)
@@ -8264,19 +8301,19 @@ function openMessageApp()
         targetName.TextSize = 13
         targetName.TextXAlignment = Enum.TextXAlignment.Left
 
-        local targetStatus = Instance.new("TextLabel", targetBar)
-        targetStatus.Size = UDim2.new(1, -160, 0, 16)
-        targetStatus.Position = UDim2.new(0, 52, 0, 22)
-        targetStatus.BackgroundTransparency = 1
-        targetStatus.Text = targetIsOnline and "🟢 Online" or "⚪ Offline · pesan tetap terkirim"
-        targetStatus.TextColor3 = targetIsOnline and Color3.fromRGB(100, 220, 140) or Color3.fromRGB(120, 120, 125)
-        targetStatus.Font = Enum.Font.Gotham
-        targetStatus.TextSize = 9
-        targetStatus.TextXAlignment = Enum.TextXAlignment.Left
+        local targetUser = Instance.new("TextLabel", targetBar)
+        targetUser.Size = UDim2.new(1, -70, 0, 14)
+        targetUser.Position = UDim2.new(0, 56, 0, 28)
+        targetUser.BackgroundTransparency = 1
+        targetUser.Text = targetIsOnline and "🟢 Online" or "⚪ Offline (pesan tetap terkirim)"
+        targetUser.TextColor3 = targetIsOnline and Color3.fromRGB(100, 220, 140) or Color3.fromRGB(120, 120, 125)
+        targetUser.Font = Enum.Font.Gotham
+        targetUser.TextSize = 9
+        targetUser.TextXAlignment = Enum.TextXAlignment.Left
 
         local backBtn = Instance.new("TextButton", targetBar)
-        backBtn.Size = UDim2.new(0, 54, 0, 26)
-        backBtn.Position = UDim2.new(1, -54, 0.5, -13)
+        backBtn.Size = UDim2.new(0, 50, 0, 24)
+        backBtn.Position = UDim2.new(1, -58, 0.5, -12)
         backBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
         backBtn.Text = "Back"
         backBtn.TextColor3 = Color3.new(1, 1, 1)
@@ -8291,7 +8328,7 @@ function openMessageApp()
             refreshCurr()
         end)
 
-        -- ===== RIWAYAT PESAN =====
+        -- ===== RIWAYAT PESAN (persistent, tampil dari Firebase) =====
         local chatScroll = Instance.new("ScrollingFrame", appContent)
         chatScroll.Size = UDim2.new(1, 0, 0, 320)
         chatScroll.BackgroundTransparency = 1
@@ -8299,15 +8336,10 @@ function openMessageApp()
         chatScroll.ScrollBarThickness = 4
         chatScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
         chatScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-        chatScroll.BorderSizePixel = 0
 
         local chatLayout = Instance.new("UIListLayout", chatScroll)
-        chatLayout.Padding = UDim.new(0, 0)
+        chatLayout.Padding = UDim.new(0, 2)
         chatLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
-        local chatTopPad = Instance.new("UIPadding", chatScroll)
-        chatTopPad.PaddingTop = UDim.new(0, 8)
-        chatTopPad.PaddingBottom = UDim.new(0, 8)
 
         local history = firebaseGet("/chats/" .. chatId .. "/messages")
         local sortedMsgs = {}
@@ -8324,34 +8356,30 @@ function openMessageApp()
             renderMessageBubble(chatScroll, msgData, isMine, idx)
         end
 
+        -- Auto scroll ke bawah setelah render
         task.defer(function()
             pcall(function()
                 chatScroll.CanvasPosition = Vector2.new(0, chatScroll.AbsoluteCanvasSize.Y)
             end)
         end)
 
-        -- ===== REPLY PREVIEW BAR =====
+        -- ===== REPLY PREVIEW BAR (kalau lagi mode reply) =====
         if replyingTo then
             local replyPreviewBar = Instance.new("Frame", appContent)
-            replyPreviewBar.Size = UDim2.new(1, 0, 0, 44)
+            replyPreviewBar.Size = UDim2.new(1, 0, 0, 40)
             replyPreviewBar.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
             replyPreviewBar.LayoutOrder = 3
             corner(replyPreviewBar, 10)
 
-            local rpPad = Instance.new("UIPadding", replyPreviewBar)
-            rpPad.PaddingLeft = UDim.new(0, 10)
-            rpPad.PaddingRight = UDim.new(0, 10)
-            rpPad.PaddingTop = UDim.new(0, 6)
-            rpPad.PaddingBottom = UDim.new(0, 6)
-
             local replyAccent2 = Instance.new("Frame", replyPreviewBar)
-            replyAccent2.Size = UDim2.new(0, 3, 1, 0)
+            replyAccent2.Size = UDim2.new(0, 3, 1, -10)
+            replyAccent2.Position = UDim2.new(0, 6, 0, 5)
             replyAccent2.BackgroundColor3 = Color3.fromRGB(80, 150, 255)
             corner(replyAccent2, 2)
 
             local replyInfoLbl = Instance.new("TextLabel", replyPreviewBar)
-            replyInfoLbl.Size = UDim2.new(1, -50, 0, 15)
-            replyInfoLbl.Position = UDim2.new(0, 12, 0, 0)
+            replyInfoLbl.Size = UDim2.new(1, -60, 0, 14)
+            replyInfoLbl.Position = UDim2.new(0, 16, 0, 5)
             replyInfoLbl.BackgroundTransparency = 1
             replyInfoLbl.Text = "Membalas " .. (replyingTo.fromDisplay or "")
             replyInfoLbl.TextColor3 = Color3.fromRGB(80, 150, 255)
@@ -8360,8 +8388,8 @@ function openMessageApp()
             replyInfoLbl.TextXAlignment = Enum.TextXAlignment.Left
 
             local replyTextPreview = Instance.new("TextLabel", replyPreviewBar)
-            replyTextPreview.Size = UDim2.new(1, -50, 0, 15)
-            replyTextPreview.Position = UDim2.new(0, 12, 0, 16)
+            replyTextPreview.Size = UDim2.new(1, -60, 0, 14)
+            replyTextPreview.Position = UDim2.new(0, 16, 0, 19)
             replyTextPreview.BackgroundTransparency = 1
             replyTextPreview.Text = #replyingTo.text > 45 and replyingTo.text:sub(1, 45) .. "..." or replyingTo.text
             replyTextPreview.TextColor3 = Color3.fromRGB(150, 150, 155)
@@ -8371,7 +8399,7 @@ function openMessageApp()
 
             local cancelReplyBtn = Instance.new("TextButton", replyPreviewBar)
             cancelReplyBtn.Size = UDim2.new(0, 24, 0, 24)
-            cancelReplyBtn.Position = UDim2.new(1, -24, 0.5, -12)
+            cancelReplyBtn.Position = UDim2.new(1, -32, 0.5, -12)
             cancelReplyBtn.BackgroundTransparency = 1
             cancelReplyBtn.Text = "✕"
             cancelReplyBtn.TextColor3 = Color3.fromRGB(150, 150, 155)
@@ -8385,19 +8413,14 @@ function openMessageApp()
 
         -- ===== INPUT AREA =====
         local inputArea = Instance.new("Frame", appContent)
-        inputArea.Size = UDim2.new(1, 0, 0, 52)
+        inputArea.Size = UDim2.new(1, 0, 0, 48)
         inputArea.BackgroundColor3 = Color3.fromRGB(20, 20, 26)
         inputArea.LayoutOrder = 99
         corner(inputArea, 12)
 
-        local inputPad = Instance.new("UIPadding", inputArea)
-        inputPad.PaddingLeft = UDim.new(0, 10)
-        inputPad.PaddingRight = UDim.new(0, 10)
-        inputPad.PaddingTop = UDim.new(0, 9)
-        inputPad.PaddingBottom = UDim.new(0, 9)
-
         local inputBox = Instance.new("TextBox", inputArea)
-        inputBox.Size = UDim2.new(1, -46, 1, 0)
+        inputBox.Size = UDim2.new(1, -56, 0, 34)
+        inputBox.Position = UDim2.new(0, 8, 0.5, -17)
         inputBox.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
         inputBox.PlaceholderText = replyingTo and ("Balas " .. (replyingTo.fromDisplay or "") .. "...") or "Ketik pesan..."
         inputBox.PlaceholderColor3 = Color3.fromRGB(100, 100, 105)
@@ -8408,15 +8431,15 @@ function openMessageApp()
         inputBox.TextXAlignment = Enum.TextXAlignment.Left
         corner(inputBox, 8)
 
-        local inputInnerPad = Instance.new("UIPadding", inputBox)
-        inputInnerPad.PaddingLeft = UDim.new(0, 10)
+        local inputPad = Instance.new("UIPadding", inputBox)
+        inputPad.PaddingLeft = UDim.new(0, 10)
 
         local sendBtn = Instance.new("TextButton", inputArea)
-        sendBtn.Size = UDim2.new(0, 34, 1, 0)
-        sendBtn.Position = UDim2.new(1, -34, 0, 0)
-        sendBtn.BackgroundColor3 = Color3.fromRGB(37, 211, 102)
+        sendBtn.Size = UDim2.new(0, 34, 0, 34)
+        sendBtn.Position = UDim2.new(1, -42, 0.5, -17)
+        sendBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
         sendBtn.Text = "↑"
-        sendBtn.TextColor3 = Color3.new(1, 1, 1)
+        sendBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
         sendBtn.Font = Enum.Font.GothamBlack
         sendBtn.TextSize = 16
         sendBtn.AutoButtonColor = false
@@ -8451,11 +8474,13 @@ function openMessageApp()
     contentFrame.LayoutOrder = 1
 
     local listLayout = Instance.new("UIListLayout", contentFrame)
-    listLayout.Padding = UDim.new(0, 6)
+    listLayout.Padding = UDim.new(0, 4)
 
+    -- Ambil unread count semua chat sekali di awal biar hemat call
     local allUnread = firebaseGet("/unread/" .. tostring(LocalPlayer.UserId))
     if type(allUnread) ~= "table" then allUnread = {} end
 
+    -- Sort: Developer → Ada unread → Online → Alphabetical
     table.sort(MEMBERS, function(a, b)
         if a.role == "Developer" and b.role ~= "Developer" then return true end
         if b.role == "Developer" and a.role ~= "Developer" then return false end
@@ -8485,28 +8510,22 @@ function openMessageApp()
         local isMe = (LocalPlayer.Name:lower() == member.username:lower())
 
         local card = Instance.new("TextButton", contentFrame)
-        card.Size = UDim2.new(1, 0, 0, 60)
+        card.Size = UDim2.new(1, 0, 0, 56)
         card.BackgroundColor3 = Color3.fromRGB(20, 20, 26)
         card.AutoButtonColor = false
         card.Text = ""
         card.LayoutOrder = i
         corner(card, 12)
 
-        local cardPad = Instance.new("UIPadding", card)
-        cardPad.PaddingLeft = UDim.new(0, 12)
-        cardPad.PaddingRight = UDim.new(0, 12)
-        cardPad.PaddingTop = UDim.new(0, 8)
-        cardPad.PaddingBottom = UDim.new(0, 8)
-
         local accent = Instance.new("Frame", card)
-        accent.Size = UDim2.new(0, 3, 1, 0)
-        accent.Position = UDim2.new(0, -8, 0, 0)
+        accent.Size = UDim2.new(0, 3, 1, -10)
+        accent.Position = UDim2.new(0, 5, 0, 5)
         accent.BackgroundColor3 = member.color
         corner(accent, 2)
 
         local avatar = Instance.new("ImageLabel", card)
-        avatar.Size = UDim2.new(0, 40, 0, 40)
-        avatar.Position = UDim2.new(0, 0, 0.5, -20)
+        avatar.Size = UDim2.new(0, 36, 0, 36)
+        avatar.Position = UDim2.new(0, 12, 0.5, -18)
         avatar.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
         if targetPlayer then
             avatar.Image = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. targetPlayer.UserId .. "&width=100&height=100&format=png"
@@ -8515,16 +8534,16 @@ function openMessageApp()
         end
         corner(avatar, 100)
 
-        local dot = Instance.new("Frame", avatar)
-        dot.Size = UDim2.new(0, 10, 0, 10)
-        dot.Position = UDim2.new(1, -10, 1, -10)
+        local dot = Instance.new("Frame", card)
+        dot.Size = UDim2.new(0, 9, 0, 9)
+        dot.Position = UDim2.new(0, 40, 0.5, 9)
         dot.BackgroundColor3 = isOnline and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(100, 100, 100)
         corner(dot, 100)
         stroke(dot, Color3.fromRGB(20, 20, 26), 2, 0)
 
         local nameLbl = Instance.new("TextLabel", card)
         nameLbl.Size = UDim2.new(1, -140, 0, 18)
-        nameLbl.Position = UDim2.new(0, 52, 0, 2)
+        nameLbl.Position = UDim2.new(0, 58, 0, 8)
         nameLbl.BackgroundTransparency = 1
         nameLbl.Text = (isMe and "(You) " or "") .. member.displayName
         nameLbl.TextColor3 = isOnline and Color3.new(1, 1, 1) or Color3.fromRGB(140, 140, 140)
@@ -8534,7 +8553,7 @@ function openMessageApp()
 
         local roleLbl = Instance.new("TextLabel", card)
         roleLbl.Size = UDim2.new(1, -140, 0, 14)
-        roleLbl.Position = UDim2.new(0, 52, 0, 20)
+        roleLbl.Position = UDim2.new(0, 58, 0, 26)
         roleLbl.BackgroundTransparency = 1
         roleLbl.Text = "@" .. member.username .. " · " .. member.role
         roleLbl.TextColor3 = isOnline and Color3.fromRGB(100, 100, 110) or Color3.fromRGB(80, 80, 80)
@@ -8543,8 +8562,8 @@ function openMessageApp()
         roleLbl.TextXAlignment = Enum.TextXAlignment.Left
 
         local badge = Instance.new("Frame", card)
-        badge.Size = UDim2.new(0, 52, 0, 15)
-        badge.Position = UDim2.new(0, 52, 0, 36)
+        badge.Size = UDim2.new(0, 50, 0, 14)
+        badge.Position = UDim2.new(0, 58, 0, 39)
         badge.BackgroundColor3 = isOnline and Color3.fromRGB(0, 200, 80) or Color3.fromRGB(70, 70, 70)
         badge.BackgroundTransparency = 0.85
         corner(badge, 7)
@@ -8557,14 +8576,19 @@ function openMessageApp()
         badgeText.Font = Enum.Font.GothamBold
         badgeText.TextSize = 7
 
+        -- Badge unread merah (kalau ada, dan target punya userId yang bisa dicari)
         local memberUserId = targetPlayer and targetPlayer.UserId or nil
+        if not memberUserId then
+            -- coba cari dari history chat manapun (biar tetap bisa chat walau offline & belum pernah online sejak server ini nyala)
+            -- fallback: skip unread check kalau belum ada userId diketahui
+        end
         if memberUserId then
             local chatIdForMember = getChatId(LocalPlayer.UserId, memberUserId)
             local unreadCount = allUnread[chatIdForMember]
             if type(unreadCount) == "number" and unreadCount > 0 then
                 local unreadBadge = Instance.new("Frame", card)
                 unreadBadge.Size = UDim2.new(0, 20, 0, 20)
-                unreadBadge.Position = UDim2.new(1, -20, 0, 0)
+                unreadBadge.Position = UDim2.new(1, -28, 0, 8)
                 unreadBadge.BackgroundColor3 = Color3.fromRGB(255, 45, 45)
                 corner(unreadBadge, 100)
 
@@ -8578,13 +8602,14 @@ function openMessageApp()
             end
         end
 
+        -- Chat button: bisa muncul untuk online DAN offline (asal bukan diri sendiri)
         if not isMe then
             local chatBtn = Instance.new("TextButton", card)
-            chatBtn.Size = UDim2.new(0, 52, 0, 26)
-            chatBtn.Position = UDim2.new(1, -52, 1, -26)
-            chatBtn.BackgroundColor3 = Color3.fromRGB(37, 211, 102)
+            chatBtn.Size = UDim2.new(0, 50, 0, 24)
+            chatBtn.Position = UDim2.new(1, -58, 0.5, -12)
+            chatBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
             chatBtn.Text = "Chat"
-            chatBtn.TextColor3 = Color3.new(1, 1, 1)
+            chatBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
             chatBtn.Font = Enum.Font.GothamBlack
             chatBtn.TextSize = 9
             chatBtn.AutoButtonColor = false
@@ -8594,6 +8619,7 @@ function openMessageApp()
                 if targetPlayer then
                     openedConversation = targetPlayer.UserId
                 else
+                    -- Offline: perlu userId. Kalau belum pernah tersimpan di history, kasih tahu user.
                     showDynamicNotification("Menunggu " .. member.displayName .. " online untuk memulai chat pertama kali.", Color3.fromRGB(255, 180, 60))
                     return
                 end
@@ -8612,7 +8638,7 @@ task.spawn(function()
     checkMessageNotif()
 end)
 
-print("[Message System] Ready! WhatsApp-style, persistent, quick-reply notif, reply/quote.")
+print("[Message System] Ready! (WhatsApp-style, persistent, reply-enabled)")
 
 -- ================= BUILD HOME ICONS =================
 buildAppIcon("Profile",1,dockBg,function() openApp("Profile",openProfileApp) end)
