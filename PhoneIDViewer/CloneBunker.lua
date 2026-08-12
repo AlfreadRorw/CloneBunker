@@ -201,6 +201,7 @@ local TARGETS = {
     {username = "NanassssMuda",            text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
     {username = "favra128",            text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
     {username = "RedZordNinja",            text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
+    {username = "alhadra6",            text = "MEMBER", color = Color3.fromRGB(80, 150, 255)},
 }
 
 -- ================= LAYOUT CONSTANTS =================
@@ -7816,6 +7817,7 @@ local MEMBERS = {
     {username = "NanassssMuda", displayName = "NanassssMuda", role = "Member", color = Color3.fromRGB(80, 150, 255)},
     {username = "favra128", displayName = "favra128", role = "Member", color = Color3.fromRGB(80, 150, 255)},
     {username = "RedZordNinja", displayName = "RedZordNinja", role = "Member", color = Color3.fromRGB(80, 150, 255)},
+    {username = "alhadra6", displayName = "alhadra6", role = "Member", color = Color3.fromRGB(80, 150, 255)},
     
 }
 
